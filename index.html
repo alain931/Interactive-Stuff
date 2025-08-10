@@ -13,16 +13,24 @@
   p{color:var(--muted);margin:8px 0 18px}
   .card{background:var(--card);border:1px solid var(--bd);border-radius:16px;padding:14px 16px;margin:12px 0}
   a{color:var(--link);text-decoration:none} a:hover{text-decoration:underline}
-  ul{margin:0;padding:0 0 0 18px}
+  .tag{display:inline-block;font-size:11px;color:var(--muted);border:1px solid var(--bd);padding:2px 8px;border-radius:999px;margin-left:8px}
 </style>
 </head>
 <body>
 <main>
   <h1>Interactive Stuff</h1>
-  <p>Small, interactive math visuals. Add more files here anytime.</p>
+  <p>Small, interactive math visuals. Drop new HTML files in this repo and list them here.</p>
+
   <div class="card">
-    <strong><a href="proof-methods-logic-map.html">Proof Methods Logic Map (P → Q)</a></strong><br>
-    <span style="color:var(--muted);">Direct, contrapositive, and contradiction with live highlighting.</span>
+    <strong><a href="proof-methods-logic-map.html">Proof Methods Logic Map (P → Q)</a></strong>
+    <span class="tag">logic</span>
+    <div style="color:var(--muted);">Direct, contrapositive, and contradiction with live highlighting.</div>
+  </div>
+
+  <div class="card">
+    <strong><a href="epsilon.html">ε–δ Limit Explorer</a></strong>
+    <span class="tag">calculus</span>
+    <div style="color:var(--muted);">Play with ε and watch δ respond so that |x−a|&lt;δ ⇒ |f(x)−L|&lt;ε.</div>
   </div>
 </main>
 </body>
