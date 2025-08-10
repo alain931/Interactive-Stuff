@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Interactive ε–δ (Epsilon–Delta) Limit Explorer</title>
+  <!-- Plotly for interactive graphs -->
+  <script src="https://cdn.jsdelivr.net/npm/plotly.js-dist-min@2.35.2/plotly.min.js"></script>
+  <!-- KaTeX for beautiful math rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js" onload="renderMathInElement(document.body, {delimiters:[{left:'$$', right:'$$', display:true},{left:'$', right:'$', display:false}]});"></script>
+  <style>
+    :root{
+      --bg: #0f1220;
+      --panel: #151a2d;
+      --panel-2: #0d1324;
+      --text: #e7ecf7;
+      --muted: #aab2c8;
+      --accent: #7aa2ff; /* cool blue */
+      --accent-2: #ff7a9e; /* hot pink */
+      --ok: #8ee38e;
+      --warn: #ffd166;
+      --err: #ff6b6b;
+      --band-eps: rgba(255, 122, 158, 0.18); /* ε band fill */
+      --band-delta: rgba(122, 162, 255, 0.18); /* δ band fill */
+      --card-radius: 16px;
+      --shadow: 0 10px 30px rgba(0,0,0,0.35);
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, 'Helvetica Neue', Arial, 'Noto Sans', 'Liberation Sans', sans-serif; color: var(--text); background: radial-gradient(1200px 600px at 20% -10%, #1e2548 0%, var(--bg) 60%); }
+    h1 { font-weight: 800; letter-spacing: 0.3px; margin: 0 0 8px; }
+    .sub { color: var(--muted); margin-bottom: 18px; }
+    .app {
+      display: flex;
+      gap: 0;
+      padding: 20px; 
+      height: calc(100vh - 40px);
+    }
+    
+    .left-panel {
+      width: 360px;
+      min-width: 200px;
+      max-width: 600px;
+      flex-shrink: 0;
+    }
+    
+    .resizer {
+      width: 6px;
+      background: linear-gradient(180deg, #2a3358, #1f2745);
+      cursor: col-resize;
+      position: relative;
+      margin: 0 6px;
+      border-radius: 3px;
+      transition: background 0.2s;
+    }
+    
+    .resizer:hover {
+      background: linear-gradient(180deg, #3a4575, #2f3855);
+    }
+    
+    .resizer::before {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 2px;
+      height: 20px;
+      background: var(--muted);
+      border-radius: 1px;
+      opacity: 0.5;
+    }
+    
+    .right-panel {
+      flex: 1;
+      min-width: 300px;
+    }
+    
+    @media (max-width: 1000px){ 
+      .app{ flex-direction: column; height: auto; }
+      .resizer { display: none; }
+      .left-panel { width: 100%; max-width: none; }
+    }
+
+    .panel {
+      background: linear-gradient(180deg, var(--panel), var(--panel-2));
+      border: 1px solid #1f2745;
+      border-radius: var(--card-radius);
+      box-shadow: var(--shadow);
+      padding: 16px 16px 14px;
+    }
+    .panel h2 { margin: 4px 0 12px; font-size: 18px; }
+
+    .row { display: grid; grid-template-columns: 1fr 110px; gap: 12px; align-items: center; margin: 10px 0 14px; }
+    .row label { font-size: 13px; color: var(--muted); }
+
+
+    select, input[type="number"], input[type="range"] {
+      width: 100%; border-radius: 12px; border: 1px solid #2a3358; background: #0c1122; color: var(--text);
+      padding: 10px 12px; outline: none; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.02);
+    }
+    input[type="range"] { padding: 0; height: 28px; }
+    input[type="range"]::-webkit-slider-thumb{ -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%; background: var(--accent); border: none; box-shadow: 0 0 0 3px rgba(122,162,255,0.25); }
+    input[type="range"]::-moz-range-thumb{ width: 16px; height: 16px; border-radius: 50%; background: var(--accent); border: none; box-shadow: 0 0 0 3px rgba(122,162,255,0.25); }
+
+    .stat { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 8px; padding: 10px 12px; border-radius: 12px; border: 1px solid #263056; background: #0a1021; margin-top: 8px; }
+    .stat .val { font-weight: 700; }
+
+    .mathblock { background: #0a0f20; border: 1px solid #202848; border-radius: 14px; padding: 10px 14px; margin-top: 10px; overflow-x: auto; }
+
+    .hint { color: var(--muted); font-size: 12px; margin-top: 10px; line-height: 1.5; }
+
+    .btns { display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
+    .btn { appearance: none; border: 1px solid #2a3358; background: #0c1122; color: var(--text); padding: 8px 12px; border-radius: 12px; cursor: pointer; }
+    .btn:hover{ border-color: #3a4575; }
+    .btn.primary{ background: linear-gradient(180deg, #2a49ff, #6a89ff); border: none; box-shadow: 0 8px 24px rgba(106,137,255,0.35); }
+
+    #plot { height: 68vh; min-height: 460px; }
+
+    .legend { font-size: 12px; color: var(--muted); margin-top: 8px; }
+    .pill { display: inline-block; padding: 2px 8px; border-radius: 999px; border: 1px solid #2d3564; background: #0b1123; color: var(--text); font-size: 11px; }
+    .pill.hot { background: #2b0f1b; border-color: #61203a; }
+    .pill.cool { background: #0f1630; border-color: #294090; }
+
+    footer { padding: 8px 20px 16px; color: var(--muted); font-size: 12px; text-align: center; }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <section class="left-panel">
+      <div class="panel">
+        <h1>ε–δ Limit Explorer</h1>
+      <div class="sub">Play with <span class="pill hot">ε</span> and watch the matching <span class="pill cool">δ</span> respond so that <strong>|x−a| &lt; δ ⇒ |f(x)−L| &lt; ε</strong>.</div>
+
+      <div class="row">
+        <label for="fnSelect">Function $f(x)$</label>
+        <select id="fnSelect">
+          <option value="quad">Quadratic — $f(x)=x^{2}$</option>
+          <option value="sin">Sine — $f(x)=\sin x$</option>
+          <option value="rem">Removable — $f(x)=\dfrac{x^{2}-1}{x-1}$</option>
+        </select>
+      </div>
+
+      <div class="row">
+        <label for="ainput">Point $a$ (approach point)</label>
+        <input id="ainput" type="number" value="2" step="0.1" />
+      </div>
+
+      <div class="row">
+        <label for="epsRange">Choose $\varepsilon$ (epsilon)</label>
+        <input id="epsRange" type="range" min="0.001" max="2" step="0.001" value="0.5" />
+        <input id="epsBox" type="number" min="0.001" max="10" step="0.001" value="0.5" />
+      </div>
+
+      <div class="stat"><div>Computed limit $L$</div><div class="val" id="Lval">—</div></div>
+      <div class="stat"><div>Matching $\delta$</div><div class="val" id="Dval">—</div></div>
+
+      <div class="mathblock" id="formalDef"></div>
+      <div class="hint">Tip: Try <em>Removable</em> with $a=1$. The limit exists ($L=2$) even though $f(1)$ is undefined—ε–δ talks only about values <em>near</em> $a$, not at $a$.</div>
+
+      <div class="btns">
+        <button class="btn" id="preset1">Set a nice example</button>
+        <button class="btn" id="preset2">Zoom to δ–neighborhood</button>
+        <button class="btn primary" id="resetBtn">Reset</button>
+      </div>
+
+      <div class="legend">
+        <span class="pill hot">ε-band</span> is the horizontal strip $L-\varepsilon<y<L+\varepsilon$. 
+        <span class="pill cool">δ-band</span> is the vertical strip $a-\delta<x<a+\delta$.
+      </div>
+      </div>
+    </section>
+    
+    <div class="resizer" id="resizer"></div>
+    
+    <section class="right-panel">
+      <div class="panel">
+        <div id="plot"></div>
+      </div>
+    </section>
+  </div>
+
+  <footer>Built for intuition: adjust $\varepsilon$, watch $\delta$, and see ε–δ come alive.</footer>
+
+<script>
+(function(){
+  // === Functions library ===
+  const FNS = {
+    quad: {
+      key: 'quad',
+      name: 'Quadratic',
+      latex: 'x^{2}',
+      f: x => x*x,
+      limit: a => a*a,
+      domainOk: x => true,
+      defaults: { a: 2, eps: 0.5 },
+      xspan: 5
+    },
+    sin: {
+      key: 'sin',
+      name: 'Sine',
+      latex: '\\sin x',
+      f: x => Math.sin(x),
+      limit: a => Math.sin(a),
+      domainOk: x => true,
+      defaults: { a: 1, eps: 0.5 },
+      xspan: 5
+    },
+    rem: {
+      key: 'rem',
+      name: 'Removable',
+      latex: '\\dfrac{x^{2}-1}{x-1}',
+      f: x => (Math.abs(x-1) < 1e-12 ? NaN : (x*x - 1)/(x-1)),
+      limit: a => a + 1, // limit exists everywhere; at a=1, L=2 though f(1) undefined
+      domainOk: x => Math.abs(x-1) > 1e-12,
+      defaults: { a: 1, eps: 0.4 },
+      xspan: 4
+    }
+  };
+
+  // === Elements ===
+  const elSelect = document.getElementById('fnSelect');
+  const elA = document.getElementById('ainput');
+  const elEpsRange = document.getElementById('epsRange');
+  const elEpsBox = document.getElementById('epsBox');
+  const elL = document.getElementById('Lval');
+  const elD = document.getElementById('Dval');
+  const elFormal = document.getElementById('formalDef');
+  const btnPreset1 = document.getElementById('preset1');
+  const btnPreset2 = document.getElementById('preset2');
+  const btnReset = document.getElementById('resetBtn');
+
+  // === State ===
+  let state = {
+    fnKey: 'quad',
+    a: 2,
+    eps: 0.5,
+    L: 4,
+    delta: 0.5,
+    xspan: 5
+  };
+
+  // === Utility: format numbers ===
+  const fmt = (x) => {
+    if (!isFinite(x)) return '—';
+    const ax = Math.abs(x);
+    if (ax >= 1000) return x.toFixed(0);
+    if (ax >= 1) return x.toFixed(4).replace(/0+$/, '').replace(/\.$/, '');
+    if (ax >= 1e-3) return x.toFixed(6).replace(/0+$/, '').replace(/\.$/, '');
+    return x.toExponential(2);
+  };
+
+  // === Numeric root finders to locate |f(x)-L| = eps nearest to a ===
+  function findNearestRoots(f, L, eps, a, domainOk, spanInit=1, spanMax=50){
+    const maxIter = 6; // expand span up to 6 times
+    let span = spanInit;
+    let left = null, right = null;
+
+    for (let iter=0; iter<maxIter; iter++){
+      const n = 800;
+      const dx = span / n;
+      // Left side scan
+      let prevx = a - 1e-6; // start just to the left
+      let prevy = safeG(prevx);
+      for (let i=1; i<=n; i++){
+        const x = a - i*dx;
+        const y = safeG(x);
+        if (isFinite(prevy) && isFinite(y)){
+          if ((prevy < 0 && y >= 0) || (prevy > 0 && y <= 0)){
+            left = bisect(a - (i-1)*dx, x, 40);
+            break;
+          }
+        }
+        prevx = x; prevy = y;
+      }
+      // Right side scan
+      prevx = a + 1e-6; prevy = safeG(prevx);
+      for (let i=1; i<=n; i++){
+        const x = a + i*dx;
+        const y = safeG(x);
+        if (isFinite(prevy) && isFinite(y)){
+          if ((prevy < 0 && y >= 0) || (prevy > 0 && y <= 0)){
+            right = bisect(a + (i-1)*dx, x, 40);
+            break;
+          }
+        }
+        prevx = x; prevy = y;
+      }
+      if (left !== null && right !== null) break;
+      span *= 2; if (span > spanMax) break;
+    }
+
+    // Bisection helper over [x1, x2]
+    function bisect(x1, x2, steps){
+      let y1 = safeG(x1), y2 = safeG(x2);
+      if (!isFinite(y1) || !isFinite(y2)) return null;
+      for (let k=0; k<steps; k++){
+        const xm = 0.5*(x1+x2);
+        const ym = safeG(xm);
+        if (!isFinite(ym)) { // nudge slightly if NaN
+          x1 = xm + 1e-10; continue;
+        }
+        if (ym === 0) return xm;
+        if ((y1 <= 0 && ym >= 0) || (y1 >= 0 && ym <= 0)) { x2 = xm; y2 = ym; }
+        else { x1 = xm; y1 = ym; }
+      }
+      return 0.5*(x1+x2);
+    }
+
+    function safeG(x){
+      if (!domainOk(x)) return NaN;
+      const fx = f(x);
+      if (!isFinite(fx)) return NaN;
+      return Math.abs(fx - L) - eps;
+    }
+
+    return { left, right };
+  }
+
+  function computeDelta(f, L, eps, a, domainOk){
+    const {left, right} = findNearestRoots(f, L, eps, a, domainOk);
+    let delta = null;
+    if (left !== null && right !== null){
+      delta = Math.min(a - left, right - a);
+    } else if (left !== null){
+      delta = a - left;
+    } else if (right !== null){
+      delta = right - a;
+    } else {
+      // Fallback: try local slope estimate for a conservative δ
+      const h = 1e-4;
+      let fpa = (domainOk(a+h) && domainOk(a-h)) ? (f(a+h) - f(a-h)) / (2*h) : 1; 
+      fpa = (isFinite(fpa) && Math.abs(fpa) > 1e-8) ? Math.abs(fpa) : 1;
+      delta = Math.min(1, eps / fpa);
+    }
+    // guard
+    if (!isFinite(delta) || delta <= 0) delta = 1e-4;
+    return delta;
+  }
+
+  // === Plotting ===
+  function draw(){
+    const fn = FNS[state.fnKey];
+    const f = fn.f;
+    const a = state.a;
+    const eps = state.eps;
+    const L = fn.limit(a);
+    state.L = L;
+
+    const delta = computeDelta(f, L, eps, a, fn.domainOk);
+    state.delta = delta;
+
+    // choose span adaptively
+    const base = fn.xspan;
+    const span = Math.max(base, 4*delta, 2);
+    state.xspan = span;
+
+    // Build data for function trace
+    const N = 1000;
+    const xs = [];
+    const ys = [];
+    const x0 = a - span, x1 = a + span;
+    for (let i=0; i<=N; i++){
+      const x = x0 + (i/N)*(x1 - x0);
+      xs.push(x);
+      if (fn.domainOk(x)){
+        const y = f(x);
+        ys.push(isFinite(y) ? y : null);
+      } else {
+        ys.push(null);
+      }
+    }
+
+    // Points at a±δ, and horizontal band boundaries intersections (approx)
+    const xL = a - delta;
+    const xR = a + delta;
+
+    const layout = {
+      paper_bgcolor: 'rgba(0,0,0,0)',
+      plot_bgcolor: 'rgba(0,0,0,0)',
+      margin: {l: 54, r: 16, t: 16, b: 44},
+      xaxis: {
+        range: [a - span, a + span], zeroline: true, zerolinecolor: '#2a3358',
+        gridcolor: '#1d2442', color: '#cbd4ef', title: 'x'
+      },
+      yaxis: {
+        automargin: true, zeroline: true, zerolinecolor: '#2a3358',
+        gridcolor: '#1d2442', color: '#cbd4ef', title: 'y'
+      },
+      shapes: [
+        // ε-band (horizontal)
+        { type: 'rect', xref: 'x', yref: 'y',
+          x0: a - span, x1: a + span, y0: L - eps, y1: L + eps,
+          fillcolor: 'rgba(255,122,158,0.18)', line: {color: 'rgba(255,122,158,0.6)'}, layer: 'below' },
+        // δ-band (vertical)
+        { type: 'rect', xref: 'x', yref: 'paper',
+          x0: xL, x1: xR, y0: 0, y1: 1,
+          fillcolor: 'rgba(122,162,255,0.18)', line: {color: 'rgba(122,162,255,0.6)'}, layer: 'below' },
+        // horizontal lines y=L±eps
+        { type: 'line', x0: a - span, x1: a + span, y0: L + eps, y1: L + eps, line: {color: '#ff7a9e', width: 1.5, dash: 'dot'} },
+        { type: 'line', x0: a - span, x1: a + span, y0: L - eps, y1: L - eps, line: {color: '#ff7a9e', width: 1.5, dash: 'dot'} },
+        // vertical lines x=a±δ
+        { type: 'line', x0: xL, x1: xL, yref: 'paper', y0: 0, y1: 1, line: {color: '#7aa2ff', width: 1.5, dash: 'dot'} },
+        { type: 'line', x0: xR, x1: xR, yref: 'paper', y0: 0, y1: 1, line: {color: '#7aa2ff', width: 1.5, dash: 'dot'} }
+      ],
+      showlegend: false
+    };
+
+    const data = [
+      { x: xs, y: ys, type: 'scatter', mode: 'lines',
+        line: { width: 3, color: '#9ab3ff' }, name: 'f(x)' },
+      { x: [a], y: [L], type: 'scatter', mode: 'markers',
+        marker: { size: 10, color: '#ffd166' }, name: '(a, L)',
+        hovertemplate: '(a, L) = (%{x:.4f}, %{y:.4f})<extra></extra>' },
+      { x: [xL, xR], y: [FNS[state.fnKey].f(xL), FNS[state.fnKey].f(xR)],
+        type: 'scatter', mode: 'markers', marker: { size: 6, color: '#7aa2ff' }, name: 'a±δ',
+        hovertemplate: 'x = %{x:.4f}<br>f(x) = %{y:.4f}<extra></extra>' }
+    ];
+
+    Plotly.react('plot', data, layout, {displayModeBar: false, responsive: true});
+
+    // Update stats & formula (KaTeX)
+    elL.textContent = fmt(L);
+    elD.textContent = fmt(delta);
+
+    const fnLatex = FNS[state.fnKey].latex;
+    // Use the auto-render system with proper delimiters
+    const formal = `$$\\forall \\varepsilon>0\\; \\exists \\delta>0:\\; |x-a|<\\delta \\implies |f(x)-L|<\\varepsilon$$
+    
+$$f(x)=`+fnLatex+`,\\quad a=`+toTex(state.a)+`,\\quad L=`+toTex(L)+`,\\quad \\varepsilon=`+toTex(eps)+`,\\quad \\delta=`+toTex(delta)+'$$';
+    
+    elFormal.innerHTML = formal;
+    
+    // Re-render math in this element
+    if (window.renderMathInElement) {
+      renderMathInElement(elFormal, {
+        delimiters: [
+          {left: '$$', right: '$$', display: true},
+          {left: '$', right: '$', display: false}
+        ]
+      });
+    }
+  }
+
+  function toTex(x){
+    if (!isFinite(x)) return '—';
+    const s = fmt(x);
+    // Use plain decimal in TeX
+    return s.indexOf('e')>=0 ? s.replace('e','\\times 10^{')+'}' : s;
+  }
+
+  // === Event wiring ===
+  function syncEps(from){
+    if (from === 'range') elEpsBox.value = elEpsRange.value;
+    else elEpsRange.value = elEpsBox.value;
+    state.eps = Math.max(1e-6, parseFloat(elEpsBox.value) || 0.1);
+    draw();
+  }
+
+  elSelect.addEventListener('change', () => {
+    const key = elSelect.value;
+    state.fnKey = key;
+    const d = FNS[key].defaults;
+    elA.value = d.a;
+    elEpsBox.value = d.eps;
+    elEpsRange.value = d.eps;
+    state.a = d.a;
+    state.eps = d.eps;
+    draw();
+  });
+
+  elA.addEventListener('input', () => { state.a = parseFloat(elA.value); draw(); });
+  elEpsRange.addEventListener('input', () => syncEps('range'));
+  elEpsBox.addEventListener('input', () => syncEps('box'));
+
+  btnPreset1.addEventListener('click', () => {
+    const key = state.fnKey;
+    if (key === 'quad'){ elA.value = 2; elEpsBox.value = 0.5; elEpsRange.value = 0.5; }
+    if (key === 'sin'){ elA.value = Math.PI/3; elEpsBox.value = 0.4; elEpsRange.value = 0.4; }
+    if (key === 'rem'){ elA.value = 1; elEpsBox.value = 0.4; elEpsRange.value = 0.4; }
+    state.a = parseFloat(elA.value);
+    state.eps = parseFloat(elEpsBox.value);
+    draw();
+  });
+
+  btnPreset2.addEventListener('click', () => {
+    // Zoom the x-axis to ±3δ to study the local neighborhood
+    const a = state.a, delta = state.delta;
+    const span = Math.max(3*delta, 0.5);
+    Plotly.relayout('plot', { 'xaxis.range': [a - span, a + span] });
+  });
+
+  btnReset.addEventListener('click', () => {
+    const d = FNS[state.fnKey].defaults;
+    elA.value = d.a; elEpsBox.value = d.eps; elEpsRange.value = d.eps;
+    state.a = d.a; state.eps = d.eps; draw();
+  });
+
+  // Initialize
+  function init(){
+    // Render initial formula block placeholder (KaTeX auto-render will handle later updates too)
+    const d = FNS[state.fnKey].defaults;
+    elA.value = d.a; elEpsBox.value = d.eps; elEpsRange.value = d.eps;
+    state.a = d.a; state.eps = d.eps; state.L = FNS[state.fnKey].limit(d.a);
+    draw();
+    
+    // Initialize resizer
+    initResizer();
+  }
+  
+  // Resizer functionality
+  function initResizer() {
+    const resizer = document.getElementById('resizer');
+    const leftPanel = document.querySelector('.left-panel');
+    let isResizing = false;
+    
+    resizer.addEventListener('mousedown', (e) => {
+      isResizing = true;
+      document.addEventListener('mousemove', onMouseMove);
+      document.addEventListener('mouseup', onMouseUp);
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
+    });
+    
+    function onMouseMove(e) {
+      if (!isResizing) return;
+      
+      const containerRect = document.querySelector('.app').getBoundingClientRect();
+      const newWidth = e.clientX - containerRect.left - 20; // Account for padding
+      
+      // Constrain width between min and max
+      const minWidth = 200;
+      const maxWidth = Math.min(600, containerRect.width * 0.6);
+      const constrainedWidth = Math.max(minWidth, Math.min(maxWidth, newWidth));
+      
+      leftPanel.style.width = constrainedWidth + 'px';
+      
+      // Trigger Plotly resize
+      setTimeout(() => {
+        if (window.Plotly && document.getElementById('plot')) {
+          Plotly.Plots.resize('plot');
+        }
+      }, 10);
+    }
+    
+    function onMouseUp() {
+      isResizing = false;
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    }
+  }
+
+  init();
+})();
+</script>
+</body>
+</html>
