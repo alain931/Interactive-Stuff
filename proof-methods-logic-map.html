@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Logic Map – Proof Methods for P → Q</title>
+<style>
+  :root{
+    --bg: #0b0c10;           /* deep gray */
+    --card: #11131a;         /* panel */
+    --ink: #e9edf1;          /* text */
+    --muted: #a7b0ba;
+    --accent: #7aa2f7;       /* blue */
+    --green: #6ddf91;        /* direct */
+    --blue:  #79b1ff;        /* contrapositive */
+    --red:   #ff7a99;        /* contradiction */
+    --chip: rgba(255,255,255,.06);
+  }
+  html,body{height:100%;background:var(--bg);color:var(--ink);font:16px/1.35 system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Helvetica,Arial,sans-serif;}
+  *{box-sizing:border-box}
+  main{max-width:1100px;margin:24px auto;padding:20px;}
+  h1{font-size:28px;margin:0 0 12px;letter-spacing:.2px}
+  p.lead{color:var(--muted);margin-top:0}
+  .canvas{background:linear-gradient(180deg,rgba(255,255,255,.04),rgba(255,255,255,.02));border:1px solid rgba(255,255,255,.08);border-radius:18px;padding:16px;box-shadow:0 10px 30px rgba(0,0,0,.25)}
+
+  /* Legend & controls */
+  .controls{display:flex;flex-wrap:wrap;gap:10px;margin:24px 4px 2px}
+  .chip{display:inline-flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;background:var(--chip);border:1px solid rgba(255,255,255,.12);cursor:pointer;user-select:none}
+  .chip .sw{width:18px;height:3px;border-radius:2px;display:inline-block}
+  .chip[data-mode="direct"]  .sw{background:var(--green)}
+  .chip[data-mode="contra"]  .sw{background:var(--blue)}
+  .chip[data-mode="contrad"] .sw{background:var(--red)}
+  .chip.active{box-shadow:0 0 0 2px rgba(255,255,255,.12) inset}
+  .chip small{color:var(--muted)}
+  .spacer{flex:1}
+  button.reset{background:transparent;border:1px dashed rgba(255,255,255,.35);color:var(--ink);padding:10px 12px;border-radius:12px;cursor:pointer}
+  button.reset:hover{background:rgba(255,255,255,.06)}
+
+  /* Info panel */
+  .panel{margin-top:16px;background:var(--card);border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:16px;box-shadow:0 12px 28px rgba(0,0,0,.28)}
+  .panel h2{margin:0 0 8px;font-size:20px}
+  .panel p{margin:6px 0;color:var(--muted)}
+  .steps{display:grid;grid-template-columns:1fr;gap:8px;margin:12px 0}
+  .step{background:var(--chip);border:1px solid rgba(255,255,255,.08);border-radius:12px;padding:10px 12px}
+  pre.template{margin:10px 0 0;background:#0f1219;border:1px solid rgba(255,255,255,.08);padding:12px;border-radius:12px;overflow:auto}
+  .btnrow{display:flex;gap:10px;margin-top:10px}
+  .btn{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.14);color:var(--ink);padding:8px 10px;border-radius:10px;cursor:pointer}
+  .btn:hover{background:rgba(255,255,255,.1)}
+  .kbd{font:12px ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;color:var(--muted)}
+
+  /* SVG styling */
+  svg{width:100%;height:auto;display:block}
+  .node circle{fill:#f6f3ee;stroke:#2a2e36;stroke-width:2}
+  .node text{font-weight:700;fill:#1a1c22;}
+  .shadow{filter:url(#drop)}
+  .edge{fill:none;stroke-linecap:round}
+  .arrow{stroke-width:5}
+  .direct{stroke:var(--green)}
+  .contra{stroke:var(--blue);stroke-dasharray:10 6}
+  .contrad{stroke:var(--red);stroke-dasharray:3 9}
+  .muted{opacity:.18}
+  .label{fill:#e9edf1;font-weight:700}
+  .tiny{fill:#a7b0ba;font-weight:500}
+
+  /* Tooltip */
+  .tt{position:absolute;pointer-events:none;background:#10131a;border:1px solid rgba(255,255,255,.12);padding:8px 10px;border-radius:10px;font-size:13px;color:var(--ink);transform:translate(-50%,-120%);white-space:nowrap;opacity:0;transition:opacity .12s ease}
+
+  @media (min-width: 800px){
+    .steps{grid-template-columns:repeat(3,1fr)}
+  }
+</style>
+</head>
+<body>
+<main>
+  <h1>Logic Map for Proving P → Q</h1>
+  <p class="lead">Hover or tap the legend to highlight a method. Click to lock it. Press <span class="kbd">1</span>, <span class="kbd">2</span>, <span class="kbd">3</span> to switch methods.</p>
+
+  <div class="canvas">
+    <svg viewBox="0 0 1100 580" role="img" aria-label="Logic map showing nodes P, Q, ¬Q, ¬P, and a Contradiction node with arrows for three proof methods.">
+      <defs>
+        <filter id="drop" x="-20%" y="-20%" width="140%" height="140%">
+          <feDropShadow dx="0" dy="3" stdDeviation="6" flood-color="#000" flood-opacity=".35"/>
+        </filter>
+        <!-- Arrowheads in three colors -->
+        <marker id="ah-green" markerWidth="14" markerHeight="10" refX="12" refY="5" orient="auto" markerUnits="strokeWidth">
+          <path d="M0,0 L12,5 L0,10 Z" fill="var(--green)" />
+        </marker>
+        <marker id="ah-blue" markerWidth="14" markerHeight="10" refX="12" refY="5" orient="auto" markerUnits="strokeWidth">
+          <path d="M0,0 L12,5 L0,10 Z" fill="var(--blue)" />
+        </marker>
+        <marker id="ah-red" markerWidth="14" markerHeight="10" refX="12" refY="5" orient="auto" markerUnits="strokeWidth">
+          <path d="M0,0 L12,5 L0,10 Z" fill="var(--red)" />
+        </marker>
+      </defs>
+
+      <!-- Title inside the canvas -->
+      <text x="550" y="36" text-anchor="middle" class="label" font-size="24">Logic Map for Proving P → Q</text>
+
+      <!-- Edges -->
+      <g id="edges" class="shadow">
+        <!-- Direct proof: P → Q -->
+        <path id="e-direct" class="edge arrow direct" marker-end="url(#ah-green)" d="M 260 130 C 410 90, 610 90, 760 130" />
+
+        <!-- Contrapositive: ¬Q → ¬P -->
+        <path id="e-contra" class="edge arrow contra" marker-end="url(#ah-blue)" d="M 260 420 C 400 460, 620 460, 760 420" />
+
+        <!-- Contradiction: P … → ⊥  and  ¬Q … → ⊥ -->
+        <path id="e-contrad-1" class="edge arrow contrad" marker-end="url(#ah-red)" d="M 280 145 C 450 200, 630 190, 790 250" />
+        <path id="e-contrad-2" class="edge arrow contrad" marker-end="url(#ah-red)" d="M 280 405 C 450 350, 630 360, 790 250" />
+      </g>
+
+      <!-- Nodes -->
+      <g id="nodes">
+        <g class="node shadow" transform="translate(230,110)">
+          <circle r="38"></circle>
+          <text text-anchor="middle" dominant-baseline="central" font-size="20">P</text>
+        </g>
+        <g class="node shadow" transform="translate(790,110)">
+          <circle r="38"></circle>
+          <text text-anchor="middle" dominant-baseline="central" font-size="20">Q</text>
+        </g>
+        <g class="node shadow" transform="translate(230,390)">
+          <circle r="38"></circle>
+          <text text-anchor="middle" dominant-baseline="central" font-size="20">¬Q</text>
+        </g>
+        <g class="node shadow" transform="translate(790,390)">
+          <circle r="38"></circle>
+          <text text-anchor="middle" dominant-baseline="central" font-size="20">¬P</text>
+        </g>
+        <g class="node shadow" transform="translate(830,250)">
+          <circle r="58"></circle>
+          <text text-anchor="middle" dominant-baseline="central" font-size="16">Contradiction</text>
+          <text y="20" text-anchor="middle" dominant-baseline="central" class="tiny">(⊥)</text>
+        </g>
+      </g>
+
+      <!-- Legend text inside the SVG -->
+      <g class="shadow" transform="translate(370,485)">
+        <rect x="0" y="0" width="340" height="70" rx="12" ry="12" fill="rgba(255,255,255,.06)" stroke="rgba(255,255,255,.12)" />
+        <g transform="translate(16,20)">
+          <line x1="0" y1="0" x2="40" y2="0" class="edge direct" stroke-width="6"/>
+          <text x="56" y="4" class="tiny">Direct proof (P → Q)</text>
+        </g>
+        <g transform="translate(16,38)">
+          <line x1="0" y1="0" x2="40" y2="0" class="edge contra" stroke-width="6"/>
+          <text x="56" y="4" class="tiny">Contrapositive (¬Q → ¬P)</text>
+        </g>
+        <g transform="translate(16,56)">
+          <line x1="0" y1="0" x2="40" y2="0" class="edge contrad" stroke-width="6" stroke="var(--red)" stroke-dasharray="6 4"/>
+          <text x="56" y="4" class="tiny">Contradiction (P ∧ ¬Q → ⊥)</text>
+        </g>
+      </g>
+    </svg>
+
+    <div class="controls">
+      <div class="chip" data-mode="direct"   title="Highlight the direct proof."><span class="sw"></span><strong>Direct</strong> <small>assume P ⇒ … ⇒ Q</small></div>
+      <div class="chip" data-mode="contra"   title="Highlight the contrapositive."><span class="sw"></span><strong>Contrapositive</strong> <small>assume ¬Q ⇒ … ⇒ ¬P</small></div>
+      <div class="chip" data-mode="contrad"  title="Highlight the contradiction method."><span class="sw"></span><strong>Contradiction</strong> <small>P ∧ ¬Q ⇒ ⊥</small></div>
+      <div class="spacer"></div>
+      <button class="reset" id="resetBtn" title="Show all methods">Reset</button>
+    </div>
+  </div>
+
+  <section id="panel" class="panel" aria-live="polite"></section>
+  <div id="tip" class="tt" role="tooltip" hidden></div>
+</main>
+
+<script>
+(function(){
+  const edges = {
+    direct:  [document.getElementById('e-direct')],
+    contra:  [document.getElementById('e-contra')],
+    contrad: [document.getElementById('e-contrad-1'), document.getElementById('e-contrad-2')]
+  };
+  const chips = [...document.querySelectorAll('.chip')];
+  const panel = document.getElementById('panel');
+  const resetBtn = document.getElementById('resetBtn');
+  const tip = document.getElementById('tip');
+
+  function setMode(mode){
+    // Toggle lock-on behavior
+    if(mode && document.querySelector('.chip.active[data-mode="'+mode+'"]')){
+      mode = null; // clicking again clears
+    }
+    chips.forEach(c => c.classList.toggle('active', c.dataset.mode===mode));
+    draw(mode);
+    showPanel(mode);
+  }
+
+  function draw(mode){
+    const all = [...edges.direct, ...edges.contra, ...edges.contrad];
+    all.forEach(e => e.classList.remove('muted'));
+    if(!mode){ return; }
+    const keep = new Set(edges[mode]);
+    all.forEach(e => { if(!keep.has(e)) e.classList.add('muted'); });
+  }
+
+  function showPanel(mode){
+    const blocks = {
+      direct: {
+        title: 'Direct proof — prove P → Q head‑on',
+        steps: [
+          'Assume P.',
+          'Use definitions/lemmas/algebra to deduce consequences of P.',
+          'Arrive at Q. Therefore, P → Q.'
+        ],
+        template:
+`Goal: prove P → Q (directly)
+Assume P.
+  … derive intermediate claims …
+Therefore Q.
+Hence P → Q.`
+      },
+      contra: {
+        title: 'Contrapositive — prove ¬Q → ¬P instead',
+        steps: [
+          'Assume ¬Q.',
+          'Reason to a contradiction with P, or directly obtain ¬P.',
+          'Conclude ¬Q → ¬P. Since (P → Q) ⇔ (¬Q → ¬P), we are done.'
+        ],
+        template:
+`Goal: prove P → Q via contrapositive
+Assume ¬Q.
+  … deduce consequences …
+Conclude ¬P.
+Thus (¬Q → ¬P), so P → Q.`
+      },
+      contrad: {
+        title: 'Proof by contradiction — rule out P ∧ ¬Q',
+        steps: [
+          'Assume P and ¬Q simultaneously.',
+          'Derive an impossibility (⊥): e.g., X and ¬X, or 0 = 1.',
+          'Therefore P ∧ ¬Q is impossible; hence P → Q.'
+        ],
+        template:
+`Goal: prove P → Q by contradiction
+Assume P and ¬Q.
+  … derive ⊥ (impossible statement) …
+Therefore not(P ∧ ¬Q).
+Hence P → Q.`
+      }
+    };
+
+    if(!mode){
+      panel.innerHTML = `
+        <h2>Three classic methods to prove P → Q</h2>
+        <p>Select a chip above (or press <span class="kbd">1</span>/<span class="kbd">2</span>/<span class="kbd">3</span>) to focus the diagram and get a copy‑ready template.</p>
+        <div class="steps">
+          <div class="step"><strong>Direct.</strong> Start from P, push forward to Q.</div>
+          <div class="step"><strong>Contrapositive.</strong> Prove ¬Q → ¬P; logically equivalent.</div>
+          <div class="step"><strong>Contradiction.</strong> Assume P ∧ ¬Q and reach ⊥.</div>
+        </div>`;
+      return;
+    }
+
+    const b = blocks[mode];
+    const color = mode==='direct' ? 'var(--green)' : mode==='contra' ? 'var(--blue)' : 'var(--red)';
+    panel.innerHTML = `
+      <h2 style="color:${color}">${b.title}</h2>
+      <div class="steps">
+        ${b.steps.map(s=>`<div class=step>${s}</div>`).join('')}
+      </div>
+      <p class="tiny">Tip: replace P and Q with your concrete statements, then refine the middle line(s).</p>
+      <pre class="template" id="tpl">${b.template}</pre>
+      <div class="btnrow">
+        <button class="btn" id="copyBtn">Copy template</button>
+        <span class="kbd">(Ctrl/Cmd+C also works)</span>
+      </div>`;
+    document.getElementById('copyBtn').onclick = () => {
+      const txt = document.getElementById('tpl').innerText;
+      navigator.clipboard.writeText(txt).then(()=>{
+        toast('Template copied');
+      });
+    };
+  }
+
+  function toast(text){
+    tip.textContent = text; tip.hidden=false; tip.style.opacity=1;
+    tip.style.left = (window.innerWidth/2)+'px';
+    tip.style.top  = (window.scrollY + 90)+'px';
+    setTimeout(()=> tip.style.opacity=0, 900);
+    setTimeout(()=> tip.hidden=true, 1200);
+  }
+
+  // Wire chips
+  chips.forEach(chip => {
+    const mode = chip.dataset.mode;
+    chip.addEventListener('mouseenter', ()=>{ if(!document.querySelector('.chip.active')) draw(mode); });
+    chip.addEventListener('mouseleave', ()=>{ if(!document.querySelector('.chip.active')) draw(null); });
+    chip.addEventListener('click', ()=> setMode(mode));
+  });
+  resetBtn.addEventListener('click', ()=> setMode(null));
+
+  // Keyboard shortcuts
+  window.addEventListener('keydown', e=>{
+    if(['1','2','3','Escape'].includes(e.key)){
+      if(e.key==='1') setMode('direct');
+      if(e.key==='2') setMode('contra');
+      if(e.key==='3') setMode('contrad');
+      if(e.key==='Escape') setMode(null);
+    }
+  });
+
+  // Initial panel
+  showPanel(null);
+})();
+</script>
+</body>
+</html>
