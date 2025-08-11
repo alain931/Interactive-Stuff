@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Epsilon–N Sequence Visualizer</title>
+<style>
+  :root{
+    --bg:#0b1020;          /* deep night */
+    --panel:#121833;       /* panel bg */
+    --ink:#e8ecff;         /* primary text */
+    --muted:#a9b1d6;       /* secondary text */
+    --accent:#78d4ff;      /* cyan accent */
+    --ok:#62d26f;          /* green */
+    --warn:#ffb454;        /* amber */
+    --err:#ff6b6b;         /* red */
+    --grid:#ffffff22;      /* faint white grid */
+    --band:#78d4ff26;      /* epsilon band fill */
+    --limit:#78d4ff;       /* limit line */
+    --fence:#ffb454;       /* N fence */
+    --point:#e8ecff;       /* default point */
+    --inside:#62d26f;      /* inside band after N */
+    --outside:#ff6b6b;     /* outside band after N */
+    --before:#a9b1d688;    /* before N */
+  }
+  html,body{height:100%;}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font-family:"Latin Modern Math","STIX Two Math","Cambria Math", ui-serif, Georgia, serif;
+    letter-spacing:0.1px;
+  }
+  .wrap{max-width:1100px; margin:24px auto; padding:0 16px;}
+  header{display:flex; gap:16px; align-items:baseline; justify-content:space-between;}
+  h1{font-size:28px; font-weight:700; margin:0;}
+  .subtitle{color:var(--muted); font-size:16px;}
+  .panels{display:grid; grid-template-columns:360px 1fr; gap:18px; margin-top:16px;}
+  .panel{background:var(--panel); border-radius:16px; padding:16px; box-shadow:0 8px 24px #00000066;}
+  .panel h2{margin:0 0 12px 0; font-size:22px;}
+  .row{display:grid; grid-template-columns:140px 1fr; gap:10px; align-items:center; margin:10px 0;}
+  label{color:var(--muted); font-size:16px;}
+  select, input[type="number"], input[type="text"]{ background:#0f1430; color:var(--ink); border:1px solid #26305c; border-radius:10px; padding:10px 12px; font-size:16px; width:100%; }
+  input[type="range"]{ width:100%; }
+  .btn{ appearance:none; border:none; padding:10px 14px; border-radius:12px; cursor:pointer; font-weight:600; background:#1a2350; color:var(--accent); border:1px solid #28408f; transition:transform .06s ease, background .2s ease; font-size:16px; }
+  .btn:hover{ background:#1d2972; }
+  .btn:active{ transform:translateY(1px); }
+  .inline{display:flex; gap:8px; align-items:center;}
+  .mini{font-size:14px; color:var(--muted);} 
+  .status{display:flex; gap:10px; align-items:center; padding:10px; border-radius:12px; background:#0f1430; border:1px solid #26305c;}
+  .dot{width:10px; height:10px; border-radius:50%; background:var(--warn);} 
+  .ok .dot{background:var(--ok);} .bad .dot{background:var(--err);} 
+  .legend{display:flex; gap:14px; align-items:center; flex-wrap:wrap; font-size:15px; color:var(--muted);} 
+  .sw{width:10px; height:10px; border-radius:50%;}
+  .sw.inside{background:var(--inside);} .sw.out{background:var(--outside);} .sw.before{background:var(--before);} 
+  .sw.limit{background:var(--limit); width:16px; height:3px; border-radius:2px;}
+  .sw.band{background:var(--band); width:16px; height:10px; border-radius:2px; outline:1px solid #3a5fb8;}
+  .sw.fence{background:var(--fence); width:3px; height:12px; border-radius:1px;}
+  .viz{position:relative;}
+  svg{width:100%; height:480px; display:block; border-radius:16px; background:linear-gradient(180deg,#0d1330,#0b1020);}
+  .tip{position:absolute; pointer-events:none; background:#0f1430; border:1px solid #26305c; border-radius:10px; padding:8px 10px; font-size:14px; color:var(--ink); opacity:0; transform:translate(-50%,-120%); white-space:nowrap;} 
+  .note{font-size:15px; color:var(--muted);} 
+  .equation{background:#0f1430; border:1px dashed #2b3564; border-radius:12px; padding:12px 14px; margin-top:10px; font-size:18px;} 
+  .kbd{font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; background:#10173a; color:#9dd2ff; border:1px solid #27407a; padding:2px 6px; border-radius:8px; font-size:12px;}
+  footer{margin-top:16px; color:var(--muted); font-size:16px;} 
+  /* add breathing room on the right side of control cells so buttons aren't flush to the edge */
+  #controls .row > div{ padding-right:14px; }
+  /* allow wrapping if space is tight */
+  #controls .row .inline{ flex-wrap:wrap; }
+  /* keep the two checkboxes side-by-side */
+  #controls .row .inline.checks{ flex-wrap:nowrap !important; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div>
+        <h1>ε–N Visualizer for Sequences (xₙ)</h1>
+        <div class="subtitle">See the band around L, place the cutoff N, and watch the points behave.</div>
+      </div>
+      <button class="btn" id="demoBtn" title="make it work">make it work →</button>
+    </header>
+
+    <div class="panels">
+      <!-- Controls panel -->
+      <section class="panel" id="controls">
+        <h2>Controls</h2>
+
+        <div class="row">
+          <label>Sequence xₙ</label>
+          <select id="seq">
+            <option value="inv_n">n⁻¹</option>
+            <option value="alt">(−1)ⁿ</option>
+            <option value="alt_over_n">(−1)ⁿ·n⁻¹</option>
+            <option value="ratio">(n+1)·n⁻¹</option>
+            <option value="one_plus_inv_to_n">(1 + n⁻¹)ⁿ</option>
+            <option value="sqrt_over_n">√n · n⁻¹</option>
+            <option value="sin_n">sin n</option>
+          </select>
+        </div>
+
+        <div class="row">
+          <label>Proposed limit L</label>
+          <div class="inline">
+            <input id="L" type="number" step="0.0001" value="0" />
+            <button class="btn" id="useKnown">Use known L</button>
+          </div>
+        </div>
+
+        <div class="row">
+          <label>ε (band half-width)</label>
+          <div>
+            <input id="eps" type="range" min="0.001" max="1" step="0.001" value="0.1" />
+            <div class="inline"><input id="epsNum" type="number" step="0.001" min="0.001" max="1" value="0.1" style="width:140px"/> <span class="mini">between 0.001 and 1</span></div>
+          </div>
+        </div>
+
+        <div class="row">
+          <label>N (cutoff)</label>
+          <div>
+            <input id="N" type="range" min="0" max="500" step="1" value="10" />
+            <div class="inline">
+              <input id="NNum" type="number" min="0" max="500" step="1" value="10" style="width:140px"/>
+              <button class="btn" id="autoN">Auto N(ε)</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="row">
+          <label>Number of points</label>
+          <div>
+            <input id="nMax" type="range" min="30" max="800" step="10" value="200" />
+            <div class="inline"><input id="nMaxNum" type="number" min="30" max="800" step="10" value="200" style="width:140px"/> <span class="mini">more points = more detail</span></div>
+          </div>
+        </div>
+
+        <div class="row">
+          <label>Show elements</label>
+          <div class="inline checks">
+            <label class="inline"><input type="checkbox" id="showBand" checked style="margin-right:6px">ε-band</label>
+            <label class="inline"><input type="checkbox" id="showFence" checked style="margin:0 6px 0 16px">N fence</label>
+          </div>
+        </div>
+
+        <div class="legend" style="margin-top:12px">
+          <span class="sw band"></span> ε-band
+          <span class="sw limit"></span> limit line y = L
+          <span class="sw fence"></span> x = N
+          <span class="sw before"></span> before N
+          <span class="sw inside"></span> after N & inside band
+          <span class="sw out"></span> after N & outside band
+        </div>
+
+        <div style="margin-top:14px" id="statusBox" class="status">
+          <div class="dot"></div>
+          <div id="statusText">Adjust L, ε, and N to test the definition.</div>
+        </div>
+
+        <div class="equation" id="eqBox">
+          Goal: for every ε > 0, find N so that for all n > N, |xₙ − L| < ε.
+        </div>
+
+        <p class="note" style="margin-top:12px">
+          Tip: Try xₙ = n⁻¹, click <span class="kbd">Use known L</span>, set ε small, then click <span class="kbd">Auto N(ε)</span>.
+        </p>
+      </section>
+
+      <!-- Visualization panel -->
+      <section class="panel viz">
+        <h2>Picture</h2>
+        <svg id="plot" viewBox="0 0 1000 520" preserveAspectRatio="none" aria-label="sequence plot"></svg>
+        <div class="tip" id="tip"></div>
+        <footer>
+          This picture treats n on the horizontal axis (ℕ) and xₙ on the vertical axis (ℝ). The horizontal band shows y = L ± ε. The vertical fence is x = N.
+        </footer>
+      </section>
+    </div>
+  </div>
+
+<script>
+(function(){
+  const seqSel = document.getElementById('seq');
+  const LInput = document.getElementById('L');
+  const epsRange = document.getElementById('eps');
+  const epsNum = document.getElementById('epsNum');
+  const NRange = document.getElementById('N');
+  const NNum = document.getElementById('NNum');
+  const nMaxRange = document.getElementById('nMax');
+  const nMaxNum = document.getElementById('nMaxNum');
+  const showBand = document.getElementById('showBand');
+  const showFence = document.getElementById('showFence');
+  const useKnown = document.getElementById('useKnown');
+  const autoNBtn = document.getElementById('autoN');
+  const statusBox = document.getElementById('statusBox');
+  const statusText = document.getElementById('statusText');
+  const eqBox = document.getElementById('eqBox');
+  const plot = document.getElementById('plot');
+  const tip = document.getElementById('tip');
+  const demoBtn = document.getElementById('demoBtn');
+
+  // ---------- Sequences ----------
+  const seqDefs = {
+    inv_n: {
+      name: 'n⁻¹',
+      f: n => 1/n,
+      knownL: 0,
+      autoN: (eps) => Math.ceil(1/eps),
+      info: 'xₙ = n⁻¹ → 0. |xₙ − 0| = n⁻¹ < ε once n > 1/ε.'
+    },
+    alt: {
+      name: '(−1)ⁿ',
+      f: n => (n % 2 === 0 ? 1 : -1),
+      knownL: null, // does not converge
+      autoN: null,
+      info: 'xₙ = (−1)ⁿ does not converge (it keeps jumping between −1 and 1).'
+    },
+    alt_over_n: {
+      name: '(−1)ⁿ·n⁻¹',
+      f: n => ((n % 2 === 0 ? 1 : -1) / n),
+      knownL: 0,
+      autoN: (eps) => Math.ceil(1/eps),
+      info: 'xₙ = (−1)ⁿ·n⁻¹ → 0. Distance to 0 is n⁻¹.'
+    },
+    ratio: {
+      name: '(n+1)·n⁻¹',
+      f: n => (n+1)/n,
+      knownL: 1,
+      autoN: (eps) => Math.ceil(1/eps),
+      info: 'xₙ = (n+1)/n → 1. The error is |(n+1)/n − 1| = 1/n.'
+    },
+    one_plus_inv_to_n: {
+      name: '(1 + n⁻¹)ⁿ',
+      f: n => Math.pow(1 + 1/n, n),
+      knownL: Math.E,
+      autoN: null, // use numeric search
+      info: 'xₙ = (1 + n⁻¹)ⁿ → e ≈ 2.71828. No simple closed-form N(ε) here, but we can search.'
+    },
+    sqrt_over_n: {
+      name: '√n · n⁻¹',
+      f: n => Math.sqrt(n)/n,
+      knownL: 0,
+      autoN: (eps) => Math.ceil(1/(eps*eps)),
+      info: 'xₙ = √n/n → 0. Inequality √n/n < ε means n > 1/ε².'
+    },
+    sin_n: {
+      name: 'sin n',
+      f: n => Math.sin(n),
+      knownL: null,
+      autoN: null,
+      info: 'xₙ = sin n does not converge (it keeps wandering between −1 and 1).'
+    }
+  };
+
+  // Sync helper
+  function tie(a,b, cast=(x)=>x){
+    a.addEventListener('input', ()=>{ b.value = cast(a.value); render(); });
+    b.addEventListener('input', ()=>{ a.value = cast(b.value); render(); });
+  }
+  tie(epsRange, epsNum, v=>Number(v));
+  tie(NRange, NNum, v=>Math.max(0, Math.min(500, Math.round(Number(v)))));
+  tie(nMaxRange, nMaxNum, v=>Math.max(30, Math.min(800, Math.round(Number(v)))));
+
+  // Utility
+  function clamp(x,a,b){ return Math.max(a, Math.min(b, x)); }
+  function fmt(x){
+    if (!isFinite(x)) return '∞';
+    const ax = Math.abs(x);
+    if (ax >= 1000) return x.toFixed(0);
+    if (ax >= 1) return x.toFixed(3);
+    if (ax >= 0.01) return x.toFixed(4);
+    return x.toExponential(2);
+  }
+
+  // Numeric search for N if no formula known
+  function searchN(eps, L, f, limit=100000){
+    // Find smallest N such that for all n>N (up to limit) we have |x_n - L| < eps
+    let okTill = 0;
+    // Try growing N; we'll keep track of the last violation index and then jump
+    for (let N=0; N<limit; N++){
+      let good = true;
+      for (let n=N+1; n<=limit; n++){
+        const val = f(n);
+        if (Math.abs(val - L) >= eps){ good = false; okTill = Math.max(okTill, n); break; }
+      }
+      if (good) return {N, exact:false};
+      // small optimization: skip ahead near last violation
+      if (okTill > N+1000) N = okTill - 1; // loop will ++ to okTill
+    }
+    return null;
+  }
+
+  function knownLimitFor(seqKey){ return seqDefs[seqKey].knownL; }
+
+  function autoNFor(seqKey, eps, L){
+    const def = seqDefs[seqKey];
+    if (def.autoN){ return {N:def.autoN(eps), exact:true}; }
+    // If known limit matches user L closely, try numeric search
+    if (def.knownL != null && Math.abs(def.knownL - L) < 1e-6){
+      const res = searchN(eps, L, def.f);
+      if (res) return res;
+    }
+    return null;
+  }
+
+  // Drawing
+  function render(){
+    const seqKey = seqSel.value;
+    const def = seqDefs[seqKey];
+    const L = Number(LInput.value);
+    const eps = Number(epsNum.value);
+    const N = Number(NNum.value);
+    const nMax = Number(nMaxNum.value);
+
+    // Compute points
+    const xs = []; // {n, y}
+    let yMin = Infinity, yMax = -Infinity;
+    for (let n=1; n<=nMax; n++){
+      const y = def.f(n);
+      xs.push({n, y});
+      if (isFinite(y)){
+        if (y<yMin) yMin=y; if (y>yMax) yMax=y;
+      }
+    }
+    // Include band edges and L in y-range
+    yMin = Math.min(yMin, L-eps);
+    yMax = Math.max(yMax, L+eps);
+    if (!isFinite(yMin) || !isFinite(yMax)) { yMin=-1; yMax=1; }
+    if (yMax===yMin){ yMax = yMin + 1; }
+    const padY = 0.1 * (yMax - yMin);
+    yMin -= padY; yMax += padY;
+
+    // Prepare SVG
+    const W = 1000, H = 520; const left=60, right=20, top=20, bottom=50;
+    const innerW = W - left - right; const innerH = H - top - bottom;
+    function X(n){ return left + (n-1) * innerW / (nMax-1); }
+    function Y(y){ return top + (yMax - y) * innerH / (yMax - yMin); }
+
+    // Build grid
+    const vTicks = Math.min(10, Math.ceil(nMax/50)); // vertical grid every ~nMax/10 integers
+    const nStep = Math.max(1, Math.round(nMax/10));
+    const yTicks = 6;
+    const paths = [];
+
+    // background rect
+    paths.push(`<rect x="${left}" y="${top}" width="${innerW}" height="${innerH}" fill="url(#bggrad)"/>`);
+
+    // grids
+    for (let n=1; n<=nMax; n+=nStep){
+      const x = X(n);
+      paths.push(`<line x1="${x}" y1="${top}" x2="${x}" y2="${top+innerH}" stroke="${getCSS('--grid')}" stroke-width="1"/>`);
+    }
+    for (let i=0; i<=yTicks; i++){
+      const yv = yMin + i*(yMax-yMin)/yTicks;
+      const y = Y(yv);
+      paths.push(`<line x1="${left}" y1="${y}" x2="${left+innerW}" y2="${y}" stroke="${getCSS('--grid')}" stroke-width="1"/>`);
+    }
+
+    // axes labels
+    const yAxis = Y(0);
+    paths.push(`<line x1="${left-4}" y1="${top}" x2="${left-4}" y2="${top+innerH}" stroke="#ffffff55" stroke-width="2"/>`);
+    paths.push(`<line x1="${left}" y1="${top+innerH+4}" x2="${left+innerW}" y2="${top+innerH+4}" stroke="#ffffff55" stroke-width="2"/>`);
+    paths.push(`<text x="${left+innerW/2}" y="${H-12}" fill="${getCSS('--muted')}" font-size="18">n (index)</text>`);
+    paths.push(`<text x="${18}" y="${top+innerH/2}" fill="${getCSS('--muted')}" font-size="18" transform="rotate(-90, 18, ${top+innerH/2})">xₙ (value)</text>`);
+
+    // epsilon band
+    if (showBand.checked){
+      const yTop = Y(L+eps), yBot = Y(L-eps);
+      paths.push(`<rect x="${left}" y="${yTop}" width="${innerW}" height="${yBot-yTop}" fill="${getCSS('--band')}" stroke="#3a5fb8" stroke-width="1"/>`);
+    }
+
+    // limit line
+    const yL = Y(L);
+    paths.push(`<line x1="${left}" y1="${yL}" x2="${left+innerW}" y2="${yL}" stroke="${getCSS('--limit')}" stroke-width="2" stroke-dasharray="6 6"/>`);
+
+    // N fence
+    if (showFence.checked){
+      const xN = X(clamp(N+1,1,nMax));
+      paths.push(`<line x1="${xN}" y1="${top}" x2="${xN}" y2="${top+innerH}" stroke="${getCSS('--fence')}" stroke-width="2"/>`);
+      paths.push(`<text x="${xN+6}" y="${top+16}" fill="${getCSS('--muted')}" font-size="18" font-weight="700" letter-spacing="0.5px">x = N</text>`);
+    }
+
+    // points
+    let violations = 0, firstBad = null; let afterInside = 0, afterTotal = 0;
+    const pts = [];
+    for (const {n,y} of xs){
+      const after = n > N;
+      const inside = Math.abs(y - L) < eps;
+      const r = after ? 3.4 : 2.6;
+      const fill = after ? (inside ? getCSS('--inside') : getCSS('--outside')) : getCSS('--before');
+      if (after){
+        afterTotal++;
+        if (inside) afterInside++; else { violations++; if (firstBad==null) firstBad = {n,y}; }
+      }
+      const cx = X(n), cy = Y(y);
+      pts.push(`<circle cx="${cx}" cy="${cy}" r="${r}" fill="${fill}" data-n="${n}" data-y="${y}"></circle>`);
+    }
+
+    // compose SVG
+    const defs = `
+      <defs>
+        <linearGradient id="bggrad" x1="0" x2="0" y1="0" y2="1">
+          <stop offset="0%" stop-color="#0d1330"/>
+          <stop offset="100%" stop-color="#0b1020"/>
+        </linearGradient>
+      </defs>`;
+
+    plot.innerHTML = defs + paths.join('') + pts.join('');
+
+    // tooltips
+    plot.querySelectorAll('circle').forEach(c => {
+      c.addEventListener('mousemove', (e)=>{
+        const n = Number(c.getAttribute('data-n'));
+        const y = Number(c.getAttribute('data-y'));
+        tip.innerHTML = `n = ${n} · xₙ = ${fmt(y)}`;
+        const bb = plot.getBoundingClientRect();
+        const x = e.clientX - bb.left; const ypx = e.clientY - bb.top;
+        tip.style.left = `${x}px`; tip.style.top = `${ypx}px`; tip.style.opacity = 1;
+      });
+      c.addEventListener('mouseleave', ()=>{ tip.style.opacity = 0; });
+    });
+
+    // status
+    const good = afterTotal>0 && violations===0;
+    statusBox.classList.toggle('ok', good);
+    statusBox.classList.toggle('bad', !good);
+    if (good){
+      statusText.textContent = `All clear beyond N: for every n > ${N}, |xₙ − L| < ε holds (checked on ${afterTotal} points).`;
+    } else {
+      if (afterTotal===0){
+        statusText.textContent = `Set N smaller than nₘₐₓ to actually test points beyond N.`;
+      } else {
+        const fb = firstBad;
+        statusText.textContent = `Not yet: there exists n > ${N} with |xₙ − L| ≥ ε. Example: n = ${fb.n}, xₙ = ${fmt(fb.y)}.`;
+      }
+    }
+
+    // equation box text
+    eqBox.textContent = `Testing: with ε = ${fmt(eps)}, N = ${N}, L = ${fmt(L)}. We require: for all n > N, |xₙ − L| < ε.`;
+  }
+
+  function getCSS(name){
+    return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  }
+
+  // Buttons
+  useKnown.addEventListener('click', ()=>{
+    const k = knownLimitFor(seqSel.value);
+    if (k==null){
+      alert('This sequence has no single limit. Try a different L or a convergent sequence.');
+    } else {
+      LInput.value = k;
+      render();
+    }
+  });
+
+  autoNBtn.addEventListener('click', ()=>{
+    const seqKey = seqSel.value;
+    const eps = Number(epsNum.value);
+    const L = Number(LInput.value);
+    const res = autoNFor(seqKey, eps, L);
+    if (res){
+      const {N, exact} = res;
+      NNum.value = clamp(Math.round(N), 0, 500);
+      NRange.value = NNum.value;
+      render();
+      if (!exact){
+        statusText.textContent += ' (N found by search up to a large bound.)';
+      }
+    } else {
+      alert('Could not produce an N(ε) for these choices. The limit may be wrong, or the sequence may not converge.');
+    }
+  });
+
+  seqSel.addEventListener('change', ()=>{
+    const def = seqDefs[seqSel.value];
+    // gentle defaults per sequence
+    if (def.knownL!=null) LInput.value = def.knownL;
+    epsNum.value = epsRange.value = 0.1;
+    NNum.value = NRange.value = 10;
+    nMaxNum.value = nMaxRange.value = 200;
+    render();
+    // show a brief info toast via status
+    statusText.textContent = def.info;
+  });
+
+  demoBtn.addEventListener('click', ()=>{
+    // A quick script: x_n = n^-1, L=0, eps=0.02, auto N
+    seqSel.value = 'inv_n';
+    LInput.value = 0;
+    epsNum.value = epsRange.value = 0.02;
+    nMaxNum.value = nMaxRange.value = 300;
+    render();
+    const res = autoNFor('inv_n', Number(epsNum.value), 0);
+    if (res){
+      NNum.value = NRange.value = Math.min(500, res.N);
+      render();
+    }
+  });
+
+  // Initial render
+  render();
+})();
+</script>
+</body>
+</html>
