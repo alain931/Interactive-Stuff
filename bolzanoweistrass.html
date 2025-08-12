@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Bolzano–Weierstrass Explorer — Subsequences</title>
+
+  <!-- Plotly -->
+  <script src="https://cdn.jsdelivr.net/npm/plotly.js-dist-min@2.35.2/plotly.min.js"></script>
+
+  <!-- KaTeX -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"
+          onload="renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}]});">
+  </script>
+
+  <style>
+    :root{
+      --bg: #0f1220;
+      --panel: #151a2d;
+      --panel-2: #0d1324;
+      --text: #e7ecf7;
+      --muted: #aab2c8;
+      --accent: #7aa2ff;    /* cool blue */
+      --accent-2: #ff7a9e;  /* hot pink */
+      --ok: #8ee38e;
+      --warn: #ffd166;
+      --err: #ff6b6b;
+      --band-eps: rgba(255, 122, 158, 0.18);
+      --band-delta: rgba(122, 162, 255, 0.18);
+      --card-radius: 16px;
+      --shadow: 0 10px 30px rgba(0,0,0,0.35);
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, 'Helvetica Neue', Arial, 'Noto Sans', 'Liberation Sans', sans-serif; color: var(--text);
+      background: radial-gradient(1200px 600px at 20% -10%, #1e2548 0%, var(--bg) 60%); }
+
+    h1 { font-weight: 800; letter-spacing: 0.3px; margin: 0 0 8px; }
+    .sub { color: var(--muted); margin-bottom: 18px; }
+
+    .app { display: flex; gap: 0; padding: 20px; height: calc(100vh - 40px); }
+    .left-panel { width: 380px; min-width: 220px; max-width: 640px; flex-shrink: 0; }
+    .right-panel { flex: 1; min-width: 320px; }
+    .resizer { width: 6px; background: linear-gradient(180deg, #2a3358, #1f2745); cursor: col-resize; position: relative; margin: 0 6px; border-radius: 3px; }
+    .resizer:hover { background: linear-gradient(180deg, #3a4575, #2f3855); }
+    .resizer::before { content:''; position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:2px; height:20px; background:var(--muted); opacity:.5; border-radius:1px; }
+
+    @media (max-width: 1000px){ .app{ flex-direction: column; height: auto; } .resizer { display: none; } .left-panel { width: 100%; max-width: none; } }
+
+    .panel {
+      background: linear-gradient(180deg, var(--panel), var(--panel-2));
+      border: 1px solid #1f2745;
+      border-radius: var(--card-radius);
+      box-shadow: var(--shadow);
+      padding: 16px 16px 14px;
+    }
+    .panel h2 { margin: 4px 0 12px; font-size: 18px; }
+
+    .row { display: grid; grid-template-columns: 1fr 120px; gap: 12px; align-items: center; margin: 10px 0 14px; }
+    .row label { font-size: 13px; color: var(--muted); }
+
+    select, input[type="number"], input[type="range"] {
+      width: 100%; border-radius: 12px; border: 1px solid #2a3358; background: #0c1122; color: var(--text);
+      padding: 10px 12px; outline: none; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.02);
+    }
+    input[type="range"] { padding: 0; height: 28px; }
+    input[type="range"]::-webkit-slider-thumb{ -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%; background: var(--accent); border: none; box-shadow: 0 0 0 3px rgba(122,162,255,0.25); }
+    input[type="range"]::-moz-range-thumb{ width: 16px; height: 16px; border-radius: 50%; background: var(--accent); border: none; box-shadow: 0 0 0 3px rgba(122,162,255,0.25); }
+
+    .stat { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 8px; padding: 10px 12px; border-radius: 12px; border: 1px solid #263056; background: #0a1021; margin-top: 8px; }
+    .stat .val { font-weight: 700; }
+
+    .mathblock { background: #0a0f20; border: 1px solid #202848; border-radius: 14px; padding: 10px 14px; margin-top: 10px; overflow-x: auto; }
+    .mathblock .katex-display { margin: 0.6rem 0; }
+    .legend { font-size: 12px; color: var(--muted); margin-top: 8px; }
+    .pill { display: inline-block; padding: 2px 8px; border-radius: 999px; border: 1px solid #2d3564; background: #0b1123; color: var(--text); font-size: 11px; }
+    .pill.hot { background: #2b0f1b; border-color: #61203a; }
+    .pill.cool { background: #0f1630; border-color: #294090; }
+
+    .btns { display:flex; gap:10px; margin-top:10px; flex-wrap:wrap; }
+    .btn { appearance: none; border: 1px solid #2a3358; background: #0c1122; color: var(--text); padding: 8px 12px; border-radius: 12px; cursor: pointer; }
+    .btn:hover{ border-color: #3a4575; }
+    .btn.primary{ background: linear-gradient(180deg, #2a49ff, #6a89ff); border: none; box-shadow: 0 8px 24px rgba(106,137,255,0.35); }
+
+    #plot { height: 68vh; min-height: 480px; }
+    footer { padding: 8px 20px 16px; color: var(--muted); font-size: 12px; text-align: center; }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <section class="left-panel">
+      <div class="panel">
+        <h1>Bolzano–Weierstrass Explorer</h1>
+        <div class="sub">
+          Extract convergent subsequences from bounded sequences.
+          Try <span class="pill">Monotone</span> (LIS/LDS) or <span class="pill">Nested intervals</span>.
+        </div>
+
+        <div class="row">
+          <label for="seqSelect">Sequence (xₙ)</label>
+          <select id="seqSelect">
+            <option value="harm">Harmonic — xₙ = 1/n (convergent)</option>
+            <option value="alt">Alternating — xₙ = (−1)ⁿ (bounded, divergent)</option>
+            <option value="sinN">Sine — xₙ = sin n (bounded, divergent)</option>
+            <option value="osc">Oscillatory — xₙ = 1 + (−1)ⁿ/n (convergent)</option>
+            <option value="frac">Fractional — xₙ = {n√2} (bounded, dense)</option>
+            <option value="period5">Periodic — xₙ = (n mod 5)/5 (bounded)</option>
+            <option value="custom">Custom — xₙ = sin(n)/n + (−1)ⁿ/√n</option>
+          </select>
+        </div>
+
+        <div class="row" id="exprRow" style="display:none">
+          <label for="exprInput">Custom xₙ</label>
+          <input id="exprInput" type="text" value="sin(n)/n + (-1)^n/sqrt(n)" />
+        </div>
+
+        <div class="row">
+          <label for="nRange">Number of terms N</label>
+          <input id="nRange" type="range" min="30" max="500" step="1" value="120" />
+          <input id="nBox" type="number" min="30" max="500" step="1" value="120" />
+        </div>
+
+        <div class="row">
+          <label>Method</label>
+          <div>
+            <label style="font-size:12px;"><input type="radio" name="mode" value="mono" checked /> Monotone</label>
+            <label style="margin-left:10px;font-size:12px;"><input type="radio" name="mode" value="nested" /> Nested intervals</label>
+          </div>
+        </div>
+
+        <div class="row">
+          <label for="epsRange">ε-band around L̂</label>
+          <input id="epsRange" type="range" min="0.0001" max="0.5" step="0.0001" value="0.05" />
+          <input id="epsBox" type="number" min="0.0001" max="1" step="0.0001" value="0.05" />
+        </div>
+
+        <div class="btns">
+          <button class="btn" id="extractBtn">Extract subsequence</button>
+          <button class="btn" id="zoomBandBtn">Zoom to ε-band</button>
+          <button class="btn" id="savePngBtn">Save PNG</button>
+          <button class="btn primary" id="resetBtn">Reset</button>
+        </div>
+
+        <div class="stat"><div>Bounded range</div><div class="val" id="rangeVal">—</div></div>
+        <div class="stat"><div>Method / type</div><div class="val" id="typeVal">—</div></div>
+        <div class="stat"><div>Subsequence length</div><div class="val" id="lenVal">—</div></div>
+        <div class="stat"><div>Estimated limit L̂</div><div class="val" id="Lval">—</div></div>
+
+        <div class="mathblock" id="formal">
+          $$\textbf{Bolzano–Weierstrass }(\mathbb{R})\\
+            \text{Every bounded sequence }(x_n)\subset\mathbb{R}\\
+            \text{has a convergent subsequence.}$$
+
+          $$\text{Subsequence: }(x_{n_k})\text{ with }n_1 < n_2 < \cdots$$
+
+          $$\text{Monotone route: every sequence has a monotone subsequence;}\\
+            \text{bounded + monotone }\Rightarrow\text{ convergent.}$$
+
+          $$\text{Nested route: split a bounded interval repeatedly;}\\
+            \text{choose a half containing infinitely many terms.}$$
+        </div>
+
+        <div class="legend">
+          Base points: gray. Subsequence: <span class="pill cool">blue</span> line+points.
+          ε-band around L̂: <span class="pill hot">pink</span> strip. Nested intervals: faint horizontal bands.
+        </div>
+      </div>
+    </section>
+
+    <div class="resizer" id="resizer"></div>
+
+    <section class="right-panel">
+      <div class="panel">
+        <div id="plot"></div>
+      </div>
+    </section>
+  </div>
+
+  <footer>Explore bounded sequences, extract subsequences, and see Bolzano–Weierstrass in action.</footer>
+
+<script>
+(() => {
+
+  // ---------------- Sequences ----------------
+  const frac = x => x - Math.floor(x);
+
+  const SEQS = {
+    harm:  { name: '1/n',           fn: n => 1/n },
+    alt:   { name: '(-1)^n',        fn: n => Math.pow(-1, n) },
+    sinN:  { name: 'sin n',         fn: n => Math.sin(n) },
+    osc:   { name: '1 + (-1)^n/n',  fn: n => 1 + Math.pow(-1,n)/n },
+    frac:  { name: '{n√2}',         fn: n => frac(n * Math.SQRT2) },
+    period5:{name:'(n mod 5)/5',    fn: n => (n % 5) / 5 }
+  };
+
+  // -------------- Elements & state --------------
+  const elSeq   = document.getElementById('seqSelect');
+  const elNRange= document.getElementById('nRange');
+  const elNBox  = document.getElementById('nBox');
+  const elEpsR  = document.getElementById('epsRange');
+  const elEpsB  = document.getElementById('epsBox');
+  const elExtract = document.getElementById('extractBtn');
+  const elZoomBand= document.getElementById('zoomBandBtn');
+  const elReset = document.getElementById('resetBtn');
+  const elExprRow = document.getElementById('exprRow');
+  const elExpr    = document.getElementById('exprInput');
+
+  // Add parse hint element
+  const elExprHint = document.createElement('div');
+  elExprHint.style.cssText = 'font-size:11px;color:#aab2c8;margin-top:6px;';
+  if (elExprRow) elExprRow.appendChild(elExprHint);
+
+  const elRangeVal = document.getElementById('rangeVal');
+  const elTypeVal  = document.getElementById('typeVal');
+  const elLenVal   = document.getElementById('lenVal');
+  const elLVal     = document.getElementById('Lval');
+
+  let mode = 'mono'; // 'mono' or 'nested'
+  document.querySelectorAll('input[name="mode"]').forEach(r => {
+    r.addEventListener('change', () => { mode = r.value; draw(); });
+  });
+
+  const state = {
+    key: 'harm',
+    N: 120,
+    eps: 0.05,
+    xs: [],  // values
+    ns: [],  // indices 1..N
+    subseqIdx: [],
+    Lhat: NaN,
+    intervals: [], // for nested method
+    customExpr: elExpr ? elExpr.value : 'sin(n)/n + (-1)^n/sqrt(n)'
+  };
+
+  // -------------- Custom expression parser --------------
+  function makeCustomFn(expr){
+    let s = (expr || '').trim();
+    s = s.replace(/√/g, 'sqrt').replace(/\^/g, '**');
+
+    // allowlist: quick character pass
+    if (!/^[0-9n\s+\-*/^.,()a-zA-Z√]+$/.test(expr)) throw new Error('Invalid characters in expression');
+
+    // block property access like .constructor / .prototype but keep decimals
+    if (/\.[A-Za-z_]/.test(s)) throw new Error('Property access not allowed');
+
+    // block dangerous identifiers outright
+    if (/(constructor|prototype|__proto__|window|self|globalThis|Function|eval|import|fetch)/i.test(s))
+      throw new Error('Disallowed token');
+
+    const fn = new Function(
+      'n','sin','cos','tan','asin','acos','atan','sqrt','abs','floor','ceil','round','exp','log','min','max','pow','frac','pi','e',
+      `"use strict"; return (${s});`
+    );
+    return (n)=>fn(n, Math.sin, Math.cos, Math.tan, Math.asin, Math.acos, Math.atan,
+                   Math.sqrt, Math.abs, Math.floor, Math.ceil, Math.round, Math.exp, Math.log,
+                   Math.min, Math.max, Math.pow, frac, Math.PI, Math.E);
+  }
+
+  // -------------- Utilities --------------
+  const fmt = x => {
+    if (!isFinite(x)) return '—';
+    const ax = Math.abs(x);
+    if (ax >= 1000) return x.toFixed(0);
+    if (ax >= 1)    return x.toFixed(4).replace(/0+$/,'').replace(/\.$/,'');
+    if (ax >= 1e-3) return x.toFixed(6).replace(/0+$/,'').replace(/\.$/,'');
+    return x.toExponential(2);
+  };
+
+  function buildSeq() {
+    const N = state.N;
+    const xs = new Array(N);
+    const ns = new Array(N);
+
+    let f;
+    if (state.key === 'custom') {
+      try {
+        f = makeCustomFn(state.customExpr);
+        elTypeVal.textContent = 'custom';
+        elExprHint.textContent = '';
+      } catch (e) {
+        elTypeVal.textContent = 'custom (parse error)';
+        elExprHint.textContent = 'Allowed: sin, cos, tan, sqrt, abs, exp, log, min, max, pow, frac, pi, e, n. Use ^ or ** for powers.';
+        f = () => NaN;
+      }
+    } else {
+      f = SEQS[state.key].fn;
+    }
+
+    for (let i=0; i<N; i++){ ns[i]=i+1; xs[i]=f(i+1); }
+    state.xs = xs; state.ns = ns;
+  }
+
+  function minmax(arr){
+    let lo = Infinity, hi = -Infinity;
+    for (const v of arr){ if (v < lo) lo = v; if (v > hi) hi = v; }
+    return [lo, hi];
+  }
+
+  function minmaxFinite(arr){
+    let lo = Infinity, hi = -Infinity;
+    for (const v of arr) if (Number.isFinite(v)) { if (v<lo) lo=v; if (v>hi) hi=v; }
+    if (lo === Infinity) return [0, 1]; // fallback if everything is NaN
+    return [lo, hi];
+  }
+
+  // ---------- Utilities for smooth limit estimation ----------
+  function smoothTailMean(arr, idx, m=8){
+    const start = Math.max(0, idx.length - m);
+    const pick = idx.slice(start);
+    const vals = pick.map(i => arr[i]);
+    return vals.reduce((a,b)=>a+b,0)/vals.length;
+  }
+
+  // ---------- Monotone subsequence (LIS/LDS) ----------
+  function LIS(arr) {
+    // Nondecreasing LIS with reconstruction
+    const n = arr.length;
+    const tails = [];           // values
+    const tailsIdx = [];        // indices in arr
+    const prev = new Array(n).fill(-1);
+
+    function lowerBound(v){
+      let lo=0, hi=tails.length;
+      while(lo<hi){
+        const mid=(lo+hi)>>1;
+        if (tails[mid] <= v) lo = mid+1; else hi = mid;
+      }
+      return lo;
+    }
+
+    for (let i=0;i<n;i++){
+      const v = arr[i];
+      const pos = lowerBound(v); // first > v → we keep nondecreasing
+      if (pos>0) prev[i] = tailsIdx[pos-1];
+      tails[pos] = v;
+      tailsIdx[pos] = i;
+    }
+    // Reconstruct
+    let k = tailsIdx.length ? tailsIdx[tailsIdx.length-1] : -1;
+    const seq = [];
+    while (k !== -1){ seq.push(k); k = prev[k]; }
+    seq.reverse();
+    return seq; // indices
+  }
+
+  function LDS(arr){
+    // Nonincreasing = LIS on (-arr)
+    const neg = arr.map(v => -v);
+    return LIS(neg);
+  }
+
+  function extractMonotone(xs){
+    const pairs = xs.map((v,i)=>[i,v]).filter(([,v])=>Number.isFinite(v));
+    if (!pairs.length) return { idx: [], type: 'monotone (no finite values)', Lhat: NaN, intervals: [] };
+
+    const vals = pairs.map(p=>p[1]);
+    const toOrig = pairs.map(p=>p[0]);
+
+    const incRaw = LIS(vals);                 // indices into vals
+    const decRaw = LIS(vals.map(v=>-v));      // reuse LIS for nonincreasing
+    const inc = incRaw.map(j=>toOrig[j]);
+    const dec = decRaw.map(j=>toOrig[j]);
+
+    const pick = inc.length >= dec.length ? inc : dec;
+    const type = (pick===inc) ? 'monotone (nondecreasing)' : 'monotone (nonincreasing)';
+    const Lhat = pick.length ? smoothTailMean(xs, pick, 8) : NaN;
+    return { idx: pick, type, Lhat, intervals: [] };
+  }
+
+  // ---------- Nested intervals (BW construction on finite sample) ----------
+  function extractNested(xs){
+    const pairs = xs.map((v,i)=>[i,v]).filter(([,v])=>Number.isFinite(v));
+    if (!pairs.length) return { idx: [], type: 'nested intervals', Lhat: NaN, intervals: [] };
+
+    const vals = pairs.map(p=>p[1]);
+    let [lo, hi] = minmaxFinite(vals);
+    let lastPos = -1;                 // index into vals
+    const idx = [];
+    const intervals = [];
+    const steps = Math.max(4, Math.min(12, Math.ceil(Math.log2(vals.length))));
+
+    for (let s=0; s<steps; s++){
+      const mid = 0.5*(lo+hi);
+      const left=[], right=[];
+      for (let j=lastPos+1; j<vals.length; j++){
+        const v = vals[j];
+        if (v>=lo && v<=mid) left.push(j);
+        else if (v>mid && v<=hi) right.push(j);
+      }
+      if (!left.length && !right.length) break;
+
+      const useRight = (!left.length) || (right.length > left.length);
+      if (useRight){ lo = mid; lastPos = right[0]; }
+      else         { hi = mid; lastPos = left[0];  }
+
+      idx.push(pairs[lastPos][0]);    // map back to original index n
+      intervals.push([lo, hi]);
+    }
+    const Lhat = 0.5*(lo+hi);
+    return { idx, type: 'nested intervals', Lhat, intervals };
+  }
+
+  // -------------- Permalink support --------------
+  let writingHash = false;
+  function writeHash(){
+    writingHash = true;
+    const base = { seq: state.key, N: state.N, eps: state.eps, mode };
+    if (state.key === 'custom') base.expr = state.customExpr;
+    const next = new URLSearchParams(base).toString();
+    if (location.hash.slice(1) !== next) location.hash = next;
+    writingHash = false;
+  }
+  function readHash(){
+    const h = new URLSearchParams(location.hash.slice(1));
+    if (h.has('seq')) state.key = h.get('seq');
+    if (h.has('N'))   state.N   = Math.max(30, Math.min(500, parseInt(h.get('N'),10)||120));
+    if (h.has('eps')) state.eps = Math.max(1e-6, parseFloat(h.get('eps'))||0.05);
+    if (h.has('mode')) mode = (h.get('mode')==='nested' ? 'nested' : 'mono');
+    if (h.has('expr')) {
+      state.customExpr = h.get('expr');
+      if (elExpr) elExpr.value = state.customExpr;
+    }
+    elSeq.value = state.key; elNRange.value = state.N; elNBox.value = state.N; elEpsR.value = state.eps; elEpsB.value = state.eps;
+    document.querySelector(`input[name="mode"][value="${mode}"]`).checked = true;
+  }
+
+  // -------------- Plot with debouncing --------------
+  let rafId = null;
+  function scheduleDraw(){
+    if (rafId) cancelAnimationFrame(rafId);
+    rafId = requestAnimationFrame(()=>{ rafId=null; draw(); });
+  }
+
+  function draw(){
+    buildSeq();
+
+    // extract
+    const result = (mode==='mono') ? extractMonotone(state.xs) : extractNested(state.xs);
+    state.subseqIdx = result.idx;
+    state.Lhat = result.Lhat;
+    state.intervals = result.intervals;
+
+    const ns = state.ns;
+    const xs = state.xs;
+    const N = ns.length;
+
+    const [lo, hi] = minmaxFinite(xs);
+    elRangeVal.textContent = `[ ${fmt(lo)} , ${fmt(hi)} ]`;
+    elTypeVal.textContent  = result.type;
+    elLenVal.textContent   = result.idx.length.toString();
+    elLVal.textContent     = isFinite(result.Lhat) ? fmt(result.Lhat) : '—';
+
+    // subsequence (skip any NaNs)
+    const subIdx = result.idx.filter(i => Number.isFinite(xs[i]));
+
+    // clean series for plotting
+    const xsClean = xs.map(v => Number.isFinite(v) ? v : null);
+    const inSub = new Set(subIdx);
+    const baseText = ns.map((n,i)=> inSub.has(i) ? `k=${subIdx.indexOf(i)+1}, nₖ=${n}` : '');
+    const base = {
+      x: ns, y: xsClean, type: 'scatter', mode: 'markers',
+      marker: { size: 6, color: '#9aa3bf' },
+      name: 'xₙ',
+      text: baseText,
+      hovertemplate: '%{text}<br>n=%{x}<br>xₙ=%{y:.6f}<extra></extra>'
+    };
+    const subX = subIdx.map(i => ns[i]);
+    const subY = subIdx.map(i => xs[i]);
+    const subK = subX.map((_, k) => k+1);
+    const subseq = {
+      x: subX, y: subY, type: 'scatter', mode: 'lines+markers',
+      line: { width: 2.5, color: '#7aa2ff' },
+      marker: { size: 7, color: '#6ea0ff' },
+      text: subK,
+      name: 'subsequence',
+      hovertemplate: 'k=%{text}, nₖ=%{x}<br>x_{nₖ}=%{y:.6f}<extra></extra>'
+    };
+
+    // Shapes: nested intervals first, then ε-band on top
+    const shapes = [];
+    // nested intervals bands (faint) - add first so they're behind
+    if (mode==='nested' && state.intervals.length){
+      const alphaStep = 0.12 / Math.max(1, state.intervals.length);
+      state.intervals.forEach((iv, k) => {
+        const a = (k+1)*alphaStep + 0.04;
+        shapes.push({
+          type:'rect', xref:'x', yref:'y', x0:1, x1:N, y0:iv[0], y1:iv[1],
+          fillcolor:`rgba(122,162,255,${a})`, line:{color:'rgba(122,162,255,0.35)'},
+          layer:'below'
+        });
+      });
+    }
+    // ε-band - add after so it appears on top
+    if (isFinite(state.Lhat) && isFinite(state.eps)){
+      shapes.push({
+        type: 'rect', xref: 'x', yref: 'y',
+        x0: 1, x1: N, y0: state.Lhat - state.eps, y1: state.Lhat + state.eps,
+        fillcolor: 'rgba(255,122,158,0.18)',
+        line: { color: 'rgba(255,122,158,0.6)' }, layer: 'below'
+      });
+      shapes.push({ type: 'line', x0: 1, x1: N, y0: state.Lhat + state.eps, y1: state.Lhat + state.eps, line: { color: '#ff7a9e', width: 1, dash: 'dot' }});
+      shapes.push({ type: 'line', x0: 1, x1: N, y0: state.Lhat - state.eps, y1: state.Lhat - state.eps, line: { color: '#ff7a9e', width: 1, dash: 'dot' }});
+    }
+
+    const layout = {
+      paper_bgcolor: 'rgba(0,0,0,0)',
+      plot_bgcolor: 'rgba(0,0,0,0)',
+      margin: {l: 54, r: 16, t: 16, b: 44},
+      xaxis: {
+        title: 'n', gridcolor: '#1d2442', color: '#cbd4ef', rangemode: 'tozero'
+      },
+      yaxis: {
+        title: 'xₙ', gridcolor: '#1d2442', color: '#cbd4ef'
+      },
+      showlegend: false,
+      shapes
+    };
+
+    Plotly.react('plot', [base, subseq], layout, {
+      displayModeBar: false,
+      responsive: true,
+      scrollZoom: true,
+      doubleClick: 'reset'
+    }).then(()=>{ btnSave.disabled = false; });
+
+    // Update URL hash with current state
+    writeHash();
+  }
+
+  // -------------- Events --------------
+  function syncN(from){
+    if (from==='range') elNBox.value = elNRange.value; else elNRange.value = elNBox.value;
+    state.N = Math.max(30, Math.min(500, parseInt(elNBox.value||120,10)));
+    scheduleDraw();
+  }
+  function syncEps(from){
+    if (from==='range') elEpsB.value = elEpsR.value; else elEpsR.value = elEpsB.value;
+    state.eps = Math.max(1e-6, parseFloat(elEpsB.value||0.05));
+    scheduleDraw();
+  }
+
+  function toggleExprRow(){
+    if (!elExprRow) return;
+    const show = state.key === 'custom';
+    elExprRow.style.display = show ? '' : 'none';
+    if (show) setTimeout(()=>elExpr?.focus(), 0);
+  }
+
+  elSeq.addEventListener('change', ()=>{
+    state.key = elSeq.value;
+    toggleExprRow();
+    draw();
+  });
+  elNRange.addEventListener('input', ()=>syncN('range'));
+  elNBox.addEventListener('input', ()=>syncN('box'));
+  elEpsR.addEventListener('input', ()=>syncEps('range'));
+  elEpsB.addEventListener('input', ()=>syncEps('box'));
+
+  if (elExpr) {
+    elExpr.addEventListener('input', ()=>{
+      state.customExpr = elExpr.value;
+      scheduleDraw();
+    });
+  }
+
+  document.getElementById('extractBtn').addEventListener('click', draw);
+  document.getElementById('zoomBandBtn').addEventListener('click', ()=>{
+    if (!isFinite(state.Lhat)) return;
+    const pad = Math.max(0.25, 3*state.eps);
+    Plotly.relayout('plot', { 'yaxis.range': [state.Lhat - pad, state.Lhat + pad] });
+  });
+  document.getElementById('resetBtn').addEventListener('click', ()=>{
+    elSeq.value = 'harm'; state.key = 'harm';
+    elNRange.value = 120; elNBox.value = 120; state.N = 120;
+    elEpsR.value = 0.05; elEpsB.value = 0.05; state.eps = 0.05;
+    draw();
+  });
+  const btnSave = document.getElementById('savePngBtn');
+  btnSave.disabled = true;
+  btnSave.addEventListener('click', async () => {
+    if (!window.Plotly?.toImage) return alert('Export not supported here.');
+    const gd = document.getElementById('plot');
+    const url = await Plotly.toImage(gd, { format: 'png', scale: 2 });
+    const a = Object.assign(document.createElement('a'), { href: url, download: 'bw-explorer.png' });
+    a.click();
+  });
+
+  // Resizer
+  initResizer();
+  function initResizer(){
+    const resizer = document.getElementById('resizer');
+    const left = document.querySelector('.left-panel');
+    let dragging = false;
+    resizer.addEventListener('pointerdown', (e)=>{
+      dragging = true; resizer.setPointerCapture(e.pointerId);
+      document.body.style.cursor='col-resize'; document.body.style.userSelect='none';
+    });
+    function onMove(e){
+      if (!dragging) return;
+      const rect = document.querySelector('.app').getBoundingClientRect();
+      const newW = e.clientX - rect.left - 20;
+      const minW = 220, maxW = Math.min(640, rect.width*0.65);
+      left.style.width = Math.max(minW, Math.min(maxW, newW))+'px';
+      setTimeout(()=>{ if (window.Plotly) Plotly.Plots.resize('plot'); }, 10);
+    }
+    function onUp(){
+      dragging = false; document.body.style.cursor=''; document.body.style.userSelect='';
+    }
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+  }
+
+  // Hash change listener
+  window.addEventListener('hashchange', ()=>{ if (!writingHash){ readHash(); draw(); }});
+
+  // Init
+  function init(){
+    readHash(); // Load state from URL first
+    // Fallback to defaults if hash is empty
+    if (!state.key) state.key = elSeq.value;
+    if (!state.N) state.N = parseInt(elNBox.value,10);
+    if (!state.eps) state.eps = parseFloat(elEpsB.value);
+    toggleExprRow();
+    draw();
+  }
+  init();
+
+})();
+</script>
+</body>
+</html>
