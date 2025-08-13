@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Cauchy Criterion Explorer — Tail Diameter</title>
+
+  <!-- Plotly -->
+  <script src="https://cdn.jsdelivr.net/npm/plotly.js-dist-min@2.35.2/plotly.min.js"></script>
+
+  <!-- KaTeX -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"
+          onload="renderMathInElement(document.body,{
+            delimiters:[
+              {left:'$$',right:'$$',display:true},
+              {left:'$', right:'$', display:false},
+              {left:'\\(', right:'\\)', display:false},
+              {left:'\\[', right:'\\]', display:true}
+            ]
+          });">
+  </script>
+
+  <style>
+    :root{
+      --bg: #0f1220;
+      --panel: #151a2d;
+      --panel-2: #0d1324;
+      --text: #e7ecf7;
+      --muted: #aab2c8;
+      --accent: #7aa2ff;    /* cool blue */
+      --accent-2: #ff7a9e;  /* hot pink */
+      --ok: #8ee38e;
+      --warn: #ffd166;
+      --err: #ff6b6b;
+      --band: rgba(255, 122, 158, 0.18);
+      --card-radius: 16px; --shadow: 0 10px 30px rgba(0,0,0,0.35);
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, 'Helvetica Neue', Arial, 'Noto Sans', 'Liberation Sans', sans-serif; color: var(--text);
+      background: radial-gradient(1200px 600px at 20% -10%, #1e2548 0%, var(--bg) 60%); }
+
+    h1 { font-weight: 800; letter-spacing: 0.3px; margin: 0 0 8px; }
+    .sub { color: var(--muted); margin-bottom: 18px; }
+
+    .app { display: flex; gap: 0; padding: 20px; height: calc(100vh - 40px); }
+    .left-panel { width: 400px; min-width: 240px; max-width: 660px; flex-shrink: 0; }
+    .right-panel { flex: 1; min-width: 320px; display: grid; grid-template-rows: 1fr 220px; gap: 12px; }
+    .resizer { width: 6px; background: linear-gradient(180deg, #2a3358, #1f2745); cursor: col-resize; position: relative; margin: 0 6px; border-radius: 3px; }
+    .resizer::before { content:''; position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:2px; height:20px; background:var(--muted); opacity:.5; border-radius:1px; }
+
+    @media (max-width: 1000px){ .app{ flex-direction: column; height: auto; } .resizer { display: none; } .left-panel { width: 100%; max-width: none; } .right-panel{ grid-template-rows: auto auto; } }
+
+    .panel {
+      background: linear-gradient(180deg, var(--panel), var(--panel-2));
+      border: 1px solid #1f2745;
+      border-radius: var(--card-radius);
+      box-shadow: var(--shadow);
+      padding: 16px 16px 14px;
+    }
+    .row { display: grid; grid-template-columns: 1fr 140px; gap: 12px; align-items: center; margin: 10px 0 14px; }
+    .row label { font-size: 13px; color: var(--muted); }
+
+    select, input[type="number"], input[type="range"], input[type="text"] {
+      width: 100%; border-radius: 12px; border: 1px solid #2a3358; background: #0c1122; color: var(--text);
+      padding: 10px 12px; outline: none; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.02);
+    }
+    input[type="range"] { padding: 0; height: 28px; }
+    input[type="range"]::-webkit-slider-thumb{ -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%; background: var(--accent); border: none; box-shadow: 0 0 0 3px rgba(122,162,255,0.25); }
+    input[type="range"]::-moz-range-thumb{ width: 16px; height: 16px; border-radius: 50%; background: var(--accent); border: none; box-shadow: 0 0 0 3px rgba(122,162,255,0.25); }
+
+    .btns { display:flex; gap:10px; margin-top:8px; flex-wrap:wrap; }
+    .btn { appearance: none; border: 1px solid #2a3358; background: #0c1122; color: var(--text); padding: 8px 12px; border-radius: 12px; cursor: pointer; }
+    .btn.primary{ background: linear-gradient(180deg, #2a49ff, #6a89ff); border: none; box-shadow: 0 8px 24px rgba(106,137,255,0.35); }
+    .btn:disabled{ opacity:.6; cursor:not-allowed; }
+
+    .stat { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 8px; padding: 10px 12px; border-radius: 12px; border: 1px solid #263056; background: #0a1021; margin-top: 8px; }
+    .stat .val { font-weight: 700; }
+    .badge { display:inline-block; padding:2px 8px; border-radius:999px; font-size:11px; border:1px solid #2d3564; }
+    .ok{ background:#10311a; border-color:#225a32; color:#b8f6c0;}
+    .warn{ background:#3a2e0f; border-color:#6d5a22; color:#ffe29b;}
+    .err{ background:#3a1515; border-color:#6d2a2a; color:#ffb5b5;}
+
+    #plot { height: 62vh; min-height: 420px; }
+    #plotD { height: 200px; }
+    .mathblock { background: #0a0f20; border: 1px solid #202848; border-radius: 14px; padding: 10px 14px; margin-top: 10px; overflow-x: auto; }
+    .legend { font-size: 12px; color: var(--muted); margin-top: 8px; }
+
+    footer { padding: 8px 20px 16px; color: var(--muted); font-size: 12px; text-align: center; }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <section class="left-panel">
+      <div class="panel">
+        <h1>Cauchy Criterion Explorer</h1>
+        <div class="sub">Slide \(N\). If the **tail diameter** \(D(N)=\sup_{m,n>N}|x_m-x_n|\) drops below \(\varepsilon\), the sequence is Cauchy at that \(\varepsilon\).</div>
+
+        <div class="row">
+          <label for="seqSelect">Sequence (xₙ)</label>
+          <select id="seqSelect" aria-label="Select sequence">
+            <option value="harm">Harmonic — xₙ = 1/n (convergent)</option>
+            <option value="alt1n">Alternating small — xₙ = (−1)ⁿ/n (convergent)</option>
+            <option value="alt">Alternating sign — xₙ = (−1)ⁿ (not Cauchy)</option>
+            <option value="sinN">Sine — xₙ = sin n (not Cauchy)</option>
+            <option value="frac">Fractional — xₙ = {n√2} (not Cauchy)</option>
+            <option value="period5">Periodic — xₙ = (n mod 5)/5 (not Cauchy)</option>
+            <option value="partialH">Partial sums — Hₙ = ∑ₖ≤ₙ 1/k (diverges)</option>
+            <option value="sqrt2dec">√2 decimals — ⌊10ⁿ√2⌋/10ⁿ (Cauchy)</option>
+            <option value="custom">Custom (type a formula in n)</option>
+          </select>
+        </div>
+
+        <div class="row" id="exprRow" style="display:none">
+          <label for="exprInput">Custom xₙ</label>
+          <input id="exprInput" type="text" value="sin(n)/n + (-1)^n/sqrt(n)" aria-label="Custom sequence expression" />
+        </div>
+        <div id="exprError" role="alert" aria-live="polite" style="display:none;color:#ffb5b5;font-size:12px;margin:-8px 0 6px 0;"></div>
+
+        <div class="row">
+          <label for="TRange">Total terms T</label>
+          <input id="TRange" type="range" min="60" max="600" step="1" value="200" />
+          <input id="TBox" type="number" min="60" max="600" step="1" value="200" />
+        </div>
+
+        <div class="row">
+          <label for="NRange">Tail threshold N₀</label>
+          <input id="NRange" type="range" min="1" max="199" step="1" value="60" />
+          <input id="NBox" type="number" min="1" max="199" step="1" value="60" />
+        </div>
+
+        <div class="row">
+          <label for="epsRange">ε</label>
+          <input id="epsRange" type="range" min="0.0001" max="1" step="0.0001" value="0.05" />
+          <input id="epsBox" type="number" min="0.0001" max="1" step="0.0001" value="0.05" />
+        </div>
+
+        <div class="btns">
+          <button class="btn" id="autoBtn" aria-label="Find the smallest N such that D(N) is below epsilon">Find smallest N for ε</button>
+          <button class="btn" id="savePngBtn" aria-label="Save the main plot as PNG">Save main plot</button>
+          <button class="btn" id="saveDPngBtn" aria-label="Save the D of N plot as PNG">Save D(N) plot</button>
+          <button class="btn primary" id="resetBtn">Reset</button>
+        </div>
+
+        <div class="stat"><div>Tail min / max</div><div class="val" id="mmVal" aria-live="polite">—</div></div>
+        <div class="stat"><div>Diameter D(N₀)</div><div class="val" id="DVal" aria-live="polite">—</div></div>
+        <div class="stat">
+          <div>Cauchy at ε?</div>
+          <div class="val"><span id="verdict" class="badge" aria-live="polite">—</span></div>
+        </div>
+
+        <div class="mathblock">
+          $$\textbf{Cauchy Criterion (}\mathbb R\textbf{):}\;\;(x_n)\text{ converges }\iff
+          \forall \varepsilon>0\;\exists N\;\text{s.t.}\;m,n>N\Rightarrow |x_m-x_n|<\varepsilon.$$
+          $$\text{Numerically: }D(N)=\sup_{m,n>N}|x_m-x_n|=\max_{k>N}x_k-\min_{k>N}x_k.$$
+        </div>
+        <div class="legend">
+          Gray = all terms; Blue = tail \(n>N_0\). Pink band = \([\min,\max]\) of tail. Lower plot shows \(D(N)\) vs \(N\).
+        </div>
+      </div>
+    </section>
+
+    <div class="resizer" id="resizer"></div>
+
+    <section class="right-panel">
+      <div class="panel"><div id="plot"></div></div>
+      <div class="panel"><div id="plotD"></div></div>
+    </section>
+  </div>
+
+  <footer>Make “internal closeness” visible: if the tail squeezes, the sequence is Cauchy (and in ℝ, convergent).</footer>
+
+<script>
+(() => {
+  // ---------- helpers ----------
+  const frac = x => x - Math.floor(x);
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const fmt = x => {
+    if (!Number.isFinite(x)) return '—';
+    const ax = Math.abs(x);
+    if (ax >= 1000) return x.toFixed(0);
+    if (ax >= 1)    return x.toFixed(4).replace(/0+$/,'').replace(/\.$/,'');
+    if (ax >= 1e-3) return x.toFixed(6).replace(/0+$/,'').replace(/\.$/,'');
+    return x.toExponential(2);
+  };
+
+  // ---------- sequences ----------
+  const SEQS = {
+    harm:     { name:'1/n',                  gen: (n)=>1/n },
+    alt1n:    { name:'(-1)^n/n',             gen: (n)=>Math.pow(-1,n)/n },
+    alt:      { name:'(-1)^n',               gen: (n)=>Math.pow(-1,n) },
+    sinN:     { name:'sin n',                gen: (n)=>Math.sin(n) },
+    frac:     { name:'{n√2}',                gen: (n)=>frac(n*Math.SQRT2) },
+    period5:  { name:'(n mod 5)/5',          gen: (n)=>(n%5)/5 },
+    partialH: { name:'H_n',                  gen: null /* we’ll fill via partial sums */ },
+    sqrt2dec: { name:'⌊10^n √2⌋/10^n',       gen: (n)=>Math.floor(Math.pow(10,n)*Math.SQRT2)/Math.pow(10,n) }
+  };
+
+  // ---------- custom parser (allowlist + block dangerous) ----------
+  function makeCustomFn(expr){
+    let s = (expr || '').trim();
+    if (!s) throw new Error('Type a formula in n, e.g. sin(n)/n');
+    s = s.replace(/√/g, 'sqrt').replace(/\^/g, '**');
+
+    if (!/^[0-9n\s+\-*/^.,()a-zA-Z√]+$/.test(expr)) throw new Error('Invalid characters');
+    // additional post-normalization check
+    if (!/^[0-9n\s+\-*/.,()a-zA-Z]+$/.test(s)) throw new Error('Invalid after normalization');
+    if (/\.[A-Za-z_]/.test(s)) throw new Error('Property access not allowed');
+    if (/(constructor|prototype|__proto__|window|self|globalThis|Function|eval|import|fetch)/i.test(s))
+      throw new Error('Disallowed token');
+
+    const fn = new Function(
+      'n','sin','cos','tan','asin','acos','atan','sqrt','abs','floor','ceil','round','exp','log','min','max','pow','frac','pi','e',
+      `"use strict"; return (${s});`
+    );
+    return (n)=>fn(n, Math.sin, Math.cos, Math.tan, Math.asin, Math.acos, Math.atan,
+                   Math.sqrt, Math.abs, Math.floor, Math.ceil, Math.round, Math.exp, Math.log,
+                   Math.min, Math.max, Math.pow, frac, Math.PI, Math.E);
+  }
+
+  // ---------- elements ----------
+  const elSeq = document.getElementById('seqSelect');
+  const elExprRow = document.getElementById('exprRow');
+  const elExpr = document.getElementById('exprInput');
+  const elTRange = document.getElementById('TRange');
+  const elTBox = document.getElementById('TBox');
+  const elNRange = document.getElementById('NRange');
+  const elNBox = document.getElementById('NBox');
+  const elEpsR = document.getElementById('epsRange');
+  const elEpsB = document.getElementById('epsBox');
+  const btnAuto = document.getElementById('autoBtn');
+  const btnSave = document.getElementById('savePngBtn');
+  const btnSaveD = document.getElementById('saveDPngBtn');
+  const btnReset = document.getElementById('resetBtn');
+
+  const elMM = document.getElementById('mmVal');
+  const elD = document.getElementById('DVal');
+  const elVerdict = document.getElementById('verdict');
+
+  // ---------- state ----------
+  const state = {
+    key: 'harm',
+    T: 200,
+    N0: 60,
+    eps: 0.05,
+    xs: [],
+    ns: [],
+    customExpr: 'sin(n)/n + (-1)^n/sqrt(n)'
+  };
+
+  // ---------- build sequence ----------
+  function buildSeq(){
+    const { key, T } = state;
+    const ns = Array.from({length:T}, (_,i)=>i+1);
+    const xs = new Array(T);
+
+    let f;
+    const elErr = document.getElementById('exprError');
+    if (key === 'custom') {
+      try {
+        f = makeCustomFn(state.customExpr);
+        elVerdict.title = '';
+        if (elErr) { elErr.style.display = 'none'; elErr.textContent = ''; }
+      } catch (e) {
+        f = () => NaN;
+        elVerdict.title = 'Custom parse error: ' + e.message;
+        if (elErr) { elErr.style.display = ''; elErr.textContent = 'Parse error: ' + e.message; }
+      }
+    } else if (key === 'partialH') {
+      // partial sums H_n
+      let s=0; for (let i=0;i<T;i++){ s += 1/(i+1); xs[i]=s; }
+      state.ns = ns; state.xs = xs; return;
+    } else if (key === 'sqrt2dec') {
+      // Guard against overflow for large n
+      if (T > 15) {
+        console.warn('√2 decimals limited to ~15 digits due to floating-point precision.');
+      }
+      const Ncap = Math.min(T, 15);      // ~15 safe decimal places
+      for (let i=0;i<T;i++){
+        const n = i+1, p = Math.min(n, Ncap);
+        const s = Math.pow(10, p);
+        xs[i] = Math.floor(s*Math.SQRT2)/s;
+      }
+      state.ns = ns; state.xs = xs; return;
+    } else {
+      f = SEQS[key].gen;
+    }
+
+    for (let i=0;i<T;i++){ xs[i] = f(i+1); }
+    state.ns = ns; state.xs = xs;
+  }
+
+  // ---------- diameter & helpers ----------
+  function tailMinMax(xs, N0){
+    let lo = Infinity, hi = -Infinity;
+    for (let i=N0;i<xs.length;i++){
+      const v = xs[i];
+      if (!Number.isFinite(v)) continue;
+      if (v<lo) lo=v; if (v>hi) hi=v;
+    }
+    if (lo===Infinity) return [NaN, NaN];
+    return [lo, hi];
+  }
+  function diameter(xs, N0){
+    const [lo,hi] = tailMinMax(xs, N0);
+    if (!Number.isFinite(lo) || !Number.isFinite(hi)) return NaN;
+    return hi-lo;
+  }
+  function Dcurve(xs){
+    // D(N) for N=1..T-2 (need at least two points beyond N)
+    const T = xs.length;
+    const D = new Array(T-1).fill(NaN);
+    let lo=Infinity, hi=-Infinity;
+    // one pass from the end to keep range for each prefix cut
+    const suffixLo = new Array(T), suffixHi = new Array(T);
+    for (let i=T-1;i>=0;i--){
+      const v = xs[i];
+      if (Number.isFinite(v)){
+        lo = Math.min(lo, v); hi = Math.max(hi, v);
+      }
+      suffixLo[i] = (lo===Infinity? NaN : lo);
+      suffixHi[i] = (hi===-Infinity? NaN : hi);
+    }
+    for (let N=1; N<=T-2; N++){
+      const a = suffixLo[N], b = suffixHi[N];
+      D[N] = (Number.isFinite(a)&&Number.isFinite(b)) ? (b-a) : NaN;
+    }
+    return D;
+  }
+
+  // ---------- drawing ----------
+  function draw(){
+    buildSeq();
+
+    const { ns, xs, N0, T, eps } = state;
+    const Dnow = diameter(xs, N0);
+    const [lo,hi] = tailMinMax(xs, N0);
+    elMM.textContent = (Number.isFinite(lo)&&Number.isFinite(hi)) ? `[ ${fmt(lo)} , ${fmt(hi)} ]` : '—';
+    elD.textContent = Number.isFinite(Dnow) ? fmt(Dnow) : '—';
+
+    const ok = Number.isFinite(Dnow) && Dnow < eps;
+    elVerdict.textContent = ok ? 'YES — tail squeezed' : 'NO — tail too wide';
+    elVerdict.className = 'badge ' + (ok ? 'ok' : 'err');
+
+    // series split
+    const headX = [], headY = [], tailX = [], tailY = [];
+    for (let i=0;i<T;i++){
+      const v = Number.isFinite(xs[i]) ? xs[i] : null;
+      if (i < N0){ headX.push(ns[i]); headY.push(v); }
+      else { tailX.push(ns[i]); tailY.push(v); }
+    }
+
+    const shapes = [];
+    if (Number.isFinite(lo) && Number.isFinite(hi)){
+      shapes.push({
+        type:'rect', xref:'x', yref:'y', x0:N0+1, x1:T, y0:lo, y1:hi,
+        fillcolor: getComputedStyle(document.documentElement).getPropertyValue('--band').trim() || 'rgba(255,122,158,0.18)', 
+        line:{color:'rgba(255,122,158,0.6)'},
+        layer:'below'
+      });
+      shapes.push({ type:'line', x0:N0+1, x1:T, y0:lo, y1:lo, line:{color:'#ff7a9e', width:1, dash:'dot'}});
+      shapes.push({ type:'line', x0:N0+1, x1:T, y0:hi, y1:hi, line:{color:'#ff7a9e', width:1, dash:'dot'}});
+      shapes.push({ type:'line', x0:N0+1, x1:N0+1, y0:lo, y1:hi, line:{color:'#7aa2ff', width:1}});
+    }
+
+    const head = { x: headX, y: headY, mode:'markers', type:'scatter',
+      marker:{ size:6, color:'#9aa3bf' }, hovertemplate:'n=%{x}<br>xₙ=%{y:.6f}<extra></extra>', name:'head' };
+    const tail = { x: tailX, y: tailY, mode:'markers', type:'scatter',
+      marker:{ size:7, color:'#6ea0ff' }, hovertemplate:'n=%{x}<br>xₙ=%{y:.6f}<extra></extra>', name:'tail' };
+
+    const plotEl = document.getElementById('plot');
+    const plotDEl = document.getElementById('plotD');
+
+    Plotly.react(plotEl, [head, tail], {
+      paper_bgcolor:'rgba(0,0,0,0)', plot_bgcolor:'rgba(0,0,0,0)',
+      margin:{l:54,r:16,t:12,b:44},
+      xaxis:{ title:'n', gridcolor:'#1d2442', color:'#cbd4ef', rangemode:'tozero' },
+      yaxis:{ title:'xₙ', gridcolor:'#1d2442', color:'#cbd4ef' },
+      showlegend:false, shapes
+    }, {displayModeBar:false, responsive:true});
+
+    // D(N) curve
+    const D = Dcurve(xs);           // length T-1 with NaNs at 0 and maybe end
+    const Nx = Array.from({ length: T - 2 }, (_, i) => i + 1); // 1..T-2
+    Plotly.react(plotDEl, [{
+      x: Nx,
+      y: D.slice(1, T - 1),         // D(1)..D(T-2)
+      type:'scatter', mode:'lines',
+      line:{ width:2.2 },
+      hovertemplate:'N=%{x}<br>D(N)=%{y:.6f}<extra></extra>',
+      name:'D(N)'
+    }, {
+      x:[1, T - 2],
+      y:[eps, eps],
+      mode:'lines', type:'scatter',
+      line:{ width:1.2, dash:'dot' },
+      hoverinfo:'skip',
+      name:'ε'
+    }], {
+      paper_bgcolor:'rgba(0,0,0,0)', plot_bgcolor:'rgba(0,0,0,0)',
+      margin:{l:54,r:16,t:8,b:36},
+      xaxis:{ title:'N', gridcolor:'#1d2442', color:'#cbd4ef' },
+      yaxis:{ title:'D(N)', gridcolor:'#1d2442', color:'#cbd4ef' },
+      showlegend:false
+    }, {displayModeBar:false, responsive:true});
+  }
+
+  // ---------- events ----------
+  function syncT(from){
+    if (from==='range') elTBox.value = elTRange.value; else elTRange.value = elTBox.value;
+    state.T = clamp(parseInt(elTBox.value||200,10), 60, 600);
+    // keep N0 ≤ T-2 (need at least 2 points beyond N for D(N))
+    const maxN = Math.max(1, state.T - 2);
+    elNRange.max = elNBox.max = String(maxN);
+    if (state.N0 > maxN){
+      state.N0 = maxN;
+      elNRange.value = elNBox.value = String(state.N0);
+    }
+    draw();
+  }
+  function syncN(from){
+    if (from==='range') elNBox.value = elNRange.value; else elNRange.value = elNBox.value;
+    state.N0 = clamp(parseInt(elNBox.value||60,10), 1, state.T - 2);
+    draw();
+  }
+  function syncEps(from){
+    if (from==='range') elEpsB.value = elEpsR.value; else elEpsR.value = elEpsB.value;
+    state.eps = Math.max(1e-6, parseFloat(elEpsB.value||0.05));
+    draw();
+  }
+  elSeq.addEventListener('change', ()=>{
+    state.key = elSeq.value;
+    const show = state.key==='custom';
+    elExprRow.style.display = show ? '' : 'none';
+    draw();
+  });
+  elTRange.addEventListener('input', ()=>syncT('range'));
+  elTBox.addEventListener('input', ()=>syncT('box'));
+  elNRange.addEventListener('input', ()=>syncN('range'));
+  elNBox.addEventListener('input', ()=>syncN('box'));
+  elEpsR.addEventListener('input', ()=>syncEps('range'));
+  elEpsB.addEventListener('input', ()=>syncEps('box'));
+
+  if (elExpr){
+    elExpr.addEventListener('input', ()=>{
+      state.customExpr = elExpr.value;
+      draw();
+    });
+  }
+
+  btnAuto.addEventListener('click', ()=>{
+    // find smallest N with D(N) < eps (needs at least 2 points beyond N)
+    buildSeq();
+    const D = Dcurve(state.xs);
+    const T = state.xs.length;
+    let found = null;
+    for (let N=1; N<=T-2; N++){
+      if (Number.isFinite(D[N]) && D[N] < state.eps){ found = N; break; }
+    }
+    if (found==null){
+      elVerdict.textContent = 'No N found (within T)';
+      elVerdict.className = 'badge warn';
+    } else {
+      state.N0 = found;
+      elNRange.value = elNBox.value = String(found);
+      draw();
+      // focus N slider for keyboard users
+      elNRange.focus();
+    }
+  });
+
+  btnReset.addEventListener('click', ()=>{
+    elSeq.value = 'harm'; state.key='harm';
+    elTRange.value = elTBox.value = 200; state.T=200;
+    const maxN = state.T - 2;                     // derive from T
+    elNRange.max = elNBox.max = String(maxN);     // was 199
+    elNRange.value = elNBox.value = 60; state.N0=60;
+    elEpsR.value = elEpsB.value = 0.05; state.eps = 0.05;
+    elExprRow.style.display='none';
+    draw();
+  });
+
+  btnSave.addEventListener('click', async ()=>{
+    const gd = document.getElementById('plot');
+    if (!window.Plotly?.toImage) return alert('Export not supported here.');
+    const url = await Plotly.toImage(gd, {format:'png', scale:2});
+    Object.assign(document.createElement('a'), { href:url, download:'cauchy-explorer.png' }).click();
+  });
+  btnSaveD.addEventListener('click', async ()=>{
+    const gd = document.getElementById('plotD');
+    const url = await Plotly.toImage(gd, {format:'png', scale:2});
+    const a = Object.assign(document.createElement('a'), { href:url, download:'diameter-curve.png' });
+    a.click();
+  });
+
+  // Resizer
+  (function initResizer(){
+    const resizer = document.getElementById('resizer');
+    const left = document.querySelector('.left-panel');
+    let dragging = false;
+    resizer.addEventListener('pointerdown', (e)=>{
+      dragging = true; resizer.setPointerCapture(e.pointerId);
+      document.body.style.cursor='col-resize'; document.body.style.userSelect='none';
+    });
+    function onMove(e){
+      if (!dragging) return;
+      const rect = document.querySelector('.app').getBoundingClientRect();
+      const newW = e.clientX - rect.left - 20;
+      const minW = 240, maxW = Math.min(660, rect.width*0.65);
+      left.style.width = clamp(newW, minW, maxW)+'px';
+      setTimeout(() => Plotly.Plots.resize(document.getElementById('plot')), 10);
+      setTimeout(() => Plotly.Plots.resize(document.getElementById('plotD')), 10);
+    }
+    function onUp(){ dragging=false; document.body.style.cursor=''; document.body.style.userSelect=''; }
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+  })();
+
+  // init
+  function init(){
+    elSeq.value = state.key;
+    elTRange.value = elTBox.value = state.T;
+    elNRange.max = elNBox.max = state.T - 2;
+    elNRange.value = elNBox.value = state.N0;
+    elEpsR.value = elEpsB.value = state.eps;
+    draw();
+  }
+  init();
+
+  // quick sanity checks in dev console
+  (function sanity(){
+    const keep = {...state};
+    function setKey(key){ state.key = key; draw(); }
+
+    // Harmonic: D(N) should be decreasing
+    setKey('harm'); state.N0 = 100; draw();
+    console.assert(diameter(state.xs, 50) >= diameter(state.xs, 100), 'Harmonic D(N) should shrink');
+
+    // Alternating sign: D(N) ≈ 2
+    setKey('alt');
+    console.assert(Math.abs(diameter(state.xs, 10) - 2) < 1e-9, 'Alternating should have D≈2');
+
+    // Fractional part: should stay wide (not Cauchy)
+    setKey('frac'); state.N0 = 50; draw();
+    console.assert(diameter(state.xs, state.N0) > 0.2, 'Frac part should stay wide');
+
+    // Custom parser security check
+    console.assert(/\berror\b/i.test((()=>{ try{ makeCustomFn('window.alert(1)') }catch(e){ return 'error' } })()),
+      'Custom parser should reject property/global access');
+
+    // Cauchy examples shrink: alt1n should go to 0
+    setKey('alt1n');
+    console.assert(diameter(state.xs, 20) > diameter(state.xs, 80), '(-1)^n/n tail should shrink');
+
+    // Divergent partial sums stay wide
+    setKey('partialH'); state.N0 = 50; draw();
+    console.assert(diameter(state.xs, 50) > 0.1, 'H_n tail should remain wide (> 0.1)');
+
+    // √2-decimals: tail diameter should drop quickly
+    setKey('sqrt2dec'); state.N0 = 10; draw();
+    console.assert(diameter(state.xs, state.N0) < 1e-3, '√2 decimals should be very tight after N≈10');
+
+    // Custom: accept good, reject bad
+    try { makeCustomFn('sin(n)/n + (-1)^n/sqrt(n)')(5); }
+    catch { console.assert(false, 'Valid custom expr should parse'); }
+    console.assert(/\berror\b/i.test((()=>{ try{ makeCustomFn('constructor') }catch(e){ return 'error' } })()),
+      'Custom parser should reject dangerous tokens');
+
+    // restore state
+    Object.assign(state, keep); draw();
+  })();
+})();
+</script>
+</body>
+</html>
